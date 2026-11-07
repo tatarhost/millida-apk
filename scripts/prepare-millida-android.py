@@ -25,14 +25,14 @@ def gate_command(source: str, signature: str, mobile_stub: str, where: str) -> s
     if attr_start < 0 or source[attr_start:fn_start].strip().splitlines()[0] != "#[tauri::command]":
         raise SystemExit(f"{where}: command attribute not found")
     start = attr_start
-    end = source.index("\\n}\\n", fn_start) + 3
+    end = source.index("\n}\n", fn_start) + 3
     original = source[start:end]
     mobile = (
-        "#[cfg(target_os = \"android\")]\\n"
-        "#[tauri::command]\\n"
-        + mobile_stub + "\\n"
+        "#[cfg(target_os = \"android\")]\n"
+        "#[tauri::command]\n"
+        + mobile_stub + "\n"
     )
-    return source[:start] + "#[cfg(not(target_os = \"android\"))]\\n" + original + "\\n" + mobile + source[end:]
+    return source[:start] + "#[cfg(not(target_os = \"android\"))]\n" + original + "\n" + mobile + source[end:]
 
 def main() -> None:
     if len(sys.argv) != 2:
