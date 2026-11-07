@@ -40,8 +40,8 @@ jobs:
           SOURCE_SHA: 28d6e12d68121b7dd75f2e841058a6b7cdfe4a29
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-          git clone --filter=blob:none --no-checkout https://github.com/AngelAuraMC/Amethyst-Android.git upstream
+          git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git clone --filter=blob:none --no-checkout --branch v3_openjdk https://github.com/AngelAuraMC/Amethyst-Android.git upstream
           git -C upstream checkout "$SOURCE_SHA"
           git -C upstream submodule sync --recursive
           git -C upstream -c protocol.version=2 submodule update --init --recursive --depth 1
@@ -62,7 +62,7 @@ jobs:
         run: |
           python3 scripts/prepare-upstream.py "$GITHUB_WORKSPACE/upstream"
           test -d upstream/app_pojavlauncher/src/main/assets/components/jre
-          find upstream/app_pojavlauncher/src/main/assets/components/jre -type f | grep -q .
+          test -n "$(find upstream/app_pojavlauncher/src/main/assets/components/jre -type f -print -quit)"
 
       - name: Create a private test signing key for this run
         working-directory: upstream/app_pojavlauncher
