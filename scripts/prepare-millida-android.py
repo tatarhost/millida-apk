@@ -18,18 +18,21 @@ def write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 def gate_command(source: str, signature: str, mobile_stub: str, where: str) -> str:
-    decorated = "#[tauri::command]\n" + signature
-    if source.count(decorated) != 1:
+    if source.count(signature) != 1:
         raise SystemExit(f"{where}: command signature not found exactly once")
-    start = source.index(decorated)
-    end = source.index("\n}\n", start) + 3
+    fn_start = source.index(signature)
+    attr_start = source.rfind("#[tauri::command]", 0, fn_start)
+    if attr_start < 0 or source[attr_start:fn_start].strip().splitlines()[0] != "#[tauri::command]":
+        raise SystemExit(f"{where}: command attribute not found")
+    start = attr_start
+    end = source.index("\\n}\\n", fn_start) + 3
     original = source[start:end]
     mobile = (
-        "#[cfg(target_os = \"android\")]\n"
-        "#[tauri::command]\n"
-        + mobile_stub + "\n"
+        "#[cfg(target_os = \"android\")]\\n"
+        "#[tauri::command]\\n"
+        + mobile_stub + "\\n"
     )
-    return source[:start] + "#[cfg(not(target_os = \"android\"))]\n" + original + "\n" + mobile + source[end:]
+    return source[:start] + "#[cfg(not(target_os = \"android\"))]\\n" + original + "\\n" + mobile + source[end:]
 
 def main() -> None:
     if len(sys.argv) != 2:
