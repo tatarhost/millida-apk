@@ -1,26 +1,35 @@
 #!/usr/bin/env python3
-"""Apply the first Android build adaptation to a pinned Millida Launcher checkout.
-
-This script deliberately keeps the original Millida React frontend and Rust engine.
-It only replaces desktop-only integrations with Android-safe stubs so the Android
-target can be compiled and its remaining platform blockers discovered.
-"""
+"""Patch a pinned Millida Launcher checkout for the first Tauri Android compile."""
 from pathlib import Path
+import re
 import subprocess
 import sys
 
 EXPECTED = "a9cec042ad1515a495a4f7c550e71f7423b65812"
 
-def replace_once(path: Path, old: str, new: str) -> None:
-    text = path.read_text(encoding="utf-8")
+def once(text: str, old: str, new: str, where: str) -> str:
     count = text.count(old)
     if count != 1:
-        raise SystemExit(f"{path}: expected one match for {old[:90]!r}, got {count}")
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+        raise SystemExit(f"{where}: expected one source anchor, found {count}: {old[:100]!r}")
+    return text.replace(old, new, 1)
 
 def write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+def gate_command(source: str, signature: str, mobile_stub: str, where: str) -> str:
+    decorated = "#[tauri::command]\n" + signature
+    if source.count(decorated) != 1:
+        raise SystemExit(f"{where}: command signature not found exactly once")
+    start = source.index(decorated)
+    end = source.index("\n}\n", start) + 3
+    original = source[start:end]
+    mobile = (
+        "#[cfg(target_os = \"android\")]\n"
+        "#[tauri::command]\n"
+        + mobile_stub + "\n"
+    )
+    return source[:start] + "#[cfg(not(target_os = \"android\"))]\n" + original + "\n" + mobile + source[end:]
 
 def main() -> None:
     if len(sys.argv) != 2:
@@ -31,51 +40,43 @@ def main() -> None:
         raise SystemExit(f"Unexpected Millida source revision {actual}; expected {EXPECTED}")
 
     cargo = root / "src-tauri/Cargo.toml"
-    text = cargo.read_text(encoding="utf-8")
-
-    # Tauri core is used on every target; desktop-only features and integrations
-    # are activated only for Windows/macOS/Linux.
-    replace_once(cargo, 'tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }',
-                 'tauri = { version = "2", features = ["protocol-asset"] }')
-    desktop_deps = """[target.'cfg(not(target_os = "android"))'.dependencies]
-tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
-tauri-plugin-updater = "2"
-tauri-plugin-autostart = "~2.5.1"
-tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
-tauri-plugin-global-shortcut = "2.3.2"
-discord-rich-presence = "0.2"
-
-"""
-    marker = "[target.'cfg(windows)'.dependencies]"
-    if text.count(marker) != 1:
-        raise SystemExit("Cargo.toml: could not find the Windows target dependency section")
-    text = text.replace(marker, desktop_deps + marker, 1)
-    for line in [
+    c = cargo.read_text(encoding="utf-8")
+    c = once(
+        c,
+        'tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }',
+        'tauri = { version = "2", features = ["protocol-asset"] }',
+        "Cargo.toml",
+    )
+    desktop_lines = [
         'tauri-plugin-updater = "2"\n',
+        'tauri-plugin-process = "2"\n',
         'tauri-plugin-autostart = "~2.5.1"\n',
         'tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }\n',
-        'discord-rich-presence = "0.2"\n',
         'tauri-plugin-global-shortcut = "2.3.2"\n',
-    ]:
-        if text.count(line) != 1:
-            raise SystemExit(f"Cargo.toml: expected one dependency line {line.strip()!r}")
-        text = text.replace(line, "", 1)
-    cargo.write_text(text, encoding="utf-8")
+        'discord-rich-presence = "0.2"\n',
+    ]
+    for line in desktop_lines:
+        c = once(c, line, "", "Cargo.toml desktop dependency move")
+    desktop_block = """[target.'cfg(not(target_os = "android"))'.dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+""" + "".join(desktop_lines) + "\n"
+    c = once(c, "[target.'cfg(windows)'.dependencies]", desktop_block + "[target.'cfg(windows)'.dependencies]", "Cargo.toml")
+    cargo.write_text(c, encoding="utf-8")
 
     src = root / "src-tauri/src"
-    # Use real desktop modules unchanged off Android. Android gets adapters for
-    # features that do not exist on a phone.
-    lib = src / "lib.rs"
-    for old, new in [
+    lib_path = src / "lib.rs"
+    lib = lib_path.read_text(encoding="utf-8")
+    module_pairs = [
         ("mod app_icon;\n", '#[cfg(not(target_os = "android"))]\nmod app_icon;\n#[cfg(target_os = "android")]\n#[path = "app_icon_mobile.rs"]\nmod app_icon;\n'),
         ("mod discord;\n", '#[cfg(not(target_os = "android"))]\nmod discord;\n#[cfg(target_os = "android")]\n#[path = "discord_mobile.rs"]\nmod discord;\n'),
         ("pub mod tray;\n", '#[cfg(not(target_os = "android"))]\npub mod tray;\n#[cfg(target_os = "android")]\n#[path = "tray_mobile.rs"]\npub mod tray;\n'),
         ("mod overlay;\n", '#[cfg(not(target_os = "android"))]\nmod overlay;\n#[cfg(target_os = "android")]\n#[path = "overlay_mobile.rs"]\nmod overlay;\n'),
-    ]:
-        replace_once(lib, old, new)
+    ]
+    for old, new in module_pairs:
+        lib = once(lib, old, new, "lib.rs module selection")
 
-    # Builder plugins not supported by the mobile target stay on desktop.
-    old_chain = """.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+    old_builder = """    tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             cli::forward_second_start(app, &argv);
             tray::show_main(app);
         }))
@@ -95,7 +96,8 @@ discord-rich-presence = "0.2"
             Some(vec![commands::system::AUTOSTART_ARG]),
         ))
         .setup(|app| {"""
-    new_chain = """.plugin(navguard::init())
+    new_builder = """    let builder = tauri::Builder::default()
+        .plugin(navguard::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_clipboard_manager::init());
     #[cfg(not(target_os = "android"))]
@@ -104,7 +106,7 @@ discord-rich-presence = "0.2"
             cli::forward_second_start(app, &argv);
             tray::show_main(app);
         }))
-        // Desktop updater, process control, global hotkeys and autostart.
+        // Desktop-only updater, process control, global hotkeys and autostart.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -113,50 +115,53 @@ discord-rich-presence = "0.2"
             Some(vec![commands::system::AUTOSTART_ARG]),
         ));
     builder.setup(|app| {"""
-    replace_once(lib, "    tauri::Builder::default()\n        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {\n            cli::forward_second_start(app, &argv);\n            tray::show_main(app);\n        }))\n        .plugin(navguard::init())\n        .plugin(tauri_plugin_deep_link::init())\n        // Tauri auto-update plugin. The address and the public signing key are in tauri.conf.json. Our own signature check code is in engine/core/selfupdate.rs.\n        .plugin(tauri_plugin_updater::Builder::new().build())\n        .plugin(tauri_plugin_process::init())\n        .plugin(tauri_plugin_clipboard_manager::init())\n        // Only one global hotkey is registered: the overlay hotkey (Alt+M by default), see overlay.rs.\n        .plugin(tauri_plugin_global_shortcut::Builder::new().build())\n        // Запуск вместе с системой (06.10.2026): лаунчер живёт в трее, и\n        // напоминания о сундуке и серии есть кому показать.\n        // Autostart with the system. The user turns it on with a switch in settings.\n        .plugin(tauri_plugin_autostart::init(\n            tauri_plugin_autostart::MacosLauncher::LaunchAgent,\n            Some(vec![commands::system::AUTOSTART_ARG]),\n        ))\n        .setup(|app| {",
-        "    let builder = tauri::Builder::default()\n        .plugin(navguard::init())\n        .plugin(tauri_plugin_deep_link::init())\n        .plugin(tauri_plugin_clipboard_manager::init());\n    #[cfg(not(target_os = \\"android\\"))]\n    let builder = builder\n        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {\n            cli::forward_second_start(app, &argv);\n            tray::show_main(app);\n        }))\n        // Desktop updater, process control, global hotkeys and autostart.\n        .plugin(tauri_plugin_updater::Builder::new().build())\n        .plugin(tauri_plugin_process::init())\n        .plugin(tauri_plugin_global_shortcut::Builder::new().build())\n        .plugin(tauri_plugin_autostart::init(\n            tauri_plugin_autostart::MacosLauncher::LaunchAgent,\n            Some(vec![commands::system::AUTOSTART_ARG]),\n        ));\n    builder.setup(|app| {")
-    # The exact block above is anchored separately, so verify no unpatched desktop chain remains.
-    patched = lib.read_text(encoding="utf-8")
-    if "tauri::Builder::default()\n        .plugin(tauri_plugin_single_instance" in patched:
-        raise SystemExit("lib.rs: desktop plugin chain was not replaced")
+    lib = once(lib, old_builder, new_builder, "lib.rs plugin builder")
+    lib = once(
+        lib,
+        "            update_start::run(app.handle(), shown_after_update);",
+        '            #[cfg(not(target_os = "android"))]\n            update_start::run(app.handle(), shown_after_update);',
+        "lib.rs updater setup",
+    )
+    lib = once(
+        lib,
+        "    packdrop::watch(app);\n    display::watch(app);",
+        '#[cfg(not(target_os = "android"))]\n    {\n        packdrop::watch(app);\n        display::watch(app);\n    }',
+        "lib.rs attach_main desktop hooks",
+    )
+    lib = once(
+        lib,
+        "            uiwatch::watch(app.handle());\n            overlay::rebind_hotkey(app.handle());",
+        '#[cfg(not(target_os = "android"))]\n            {\n                uiwatch::watch(app.handle());\n                overlay::rebind_hotkey(app.handle());\n            }',
+        "lib.rs desktop watchers",
+    )
+    lib_path.write_text(lib, encoding="utf-8")
 
-    # Desktop-only startup helpers are gated; mobile still attaches its one main window.
-    replace_once(lib, "            update_start::run(app.handle(), shown_after_update);",
-                 "            #[cfg(not(target_os = \\"android\\"))]\n            update_start::run(app.handle(), shown_after_update);")
-    replace_once(lib, "    packdrop::watch(app);\n    display::watch(app);",
-                 "    #[cfg(not(target_os = \\"android\\"))]\n    {\n        packdrop::watch(app);\n        display::watch(app);\n    }")
+    # Autostart is not a launcher setting on Android; expose the same commands
+    # to the original UI but return a truthful disabled state.
+    system_path = src / "commands/system.rs"
+    system = system_path.read_text(encoding="utf-8")
+    system = gate_command(
+        system,
+        "pub fn autostart_state(app: tauri::AppHandle) -> Result<bool, String> {",
+        "pub fn autostart_state(_app: tauri::AppHandle) -> Result<bool, String> { Ok(false) }",
+        "autostart_state",
+    )
+    system = gate_command(
+        system,
+        "pub fn autostart_set(app: tauri::AppHandle, on: bool) -> Result<bool, String> {",
+        "pub fn autostart_set(_app: tauri::AppHandle, _on: bool) -> Result<bool, String> { Ok(false) }",
+        "autostart_set",
+    )
+    system_path.write_text(system, encoding="utf-8")
 
-    # rfd dialogs are still desktop-only for this first compile pass. The Android
-    # picker/SAF implementation is a separate adapter, not a desktop path shim.
-    system = src / "commands/system.rs"
-    for fn_name, signature, stub in [
-        ("autostart_state",
-         "pub fn autostart_state(app: tauri::AppHandle) -> Result<bool, String> {",
-         "pub fn autostart_state(_app: tauri::AppHandle) -> Result<bool, String> { Ok(false) }"),
-        ("autostart_set",
-         "pub fn autostart_set(app: tauri::AppHandle, on: bool) -> Result<bool, String> {",
-         "pub fn autostart_set(_app: tauri::AppHandle, _on: bool) -> Result<bool, String> { Ok(false) }"),
-    ]:
-        text = system.read_text(encoding="utf-8")
-        if text.count(signature) != 1:
-            raise SystemExit(f"system.rs: cannot find {fn_name}")
-        # Keep the original full desktop function, prepend cfg to its command attribute.
-        text = text.replace("#[tauri::command]\n" + signature,
-                            "#[cfg(not(target_os = \\"android\\"))]\n#[tauri::command]\n" + signature, 1)
-        # Append mobile stub after the end of this function by using the next stable section marker.
-        marker = "/// Hardware and OS facts only, nothing identifying the user." if fn_name == "autostart_set" else "/// Включить или выключить запуск вместе с системой; ответ — что вышло на деле."
-        if fn_name == "autostart_state":
-            # Insert stub immediately before the following autostart_set docs.
-            insertion = "#[cfg(target_os = \\"android\\")]\n#[tauri::command]\n" + stub + "\n\n"
-            text = text.replace(marker, insertion + marker, 1)
-        else:
-            # Insert stub before DeviceSpecs, after the desktop function.
-            marker2 = "/// Hardware and OS facts only, nothing identifying the user."
-            insertion = "#[cfg(target_os = \\"android\\")]\n#[tauri::command]\n" + stub + "\n\n"
-            text = text.replace(marker2, insertion + marker2, 1)
-        system.write_text(text, encoding="utf-8")
+    write(src / "app_icon_mobile.rs", """use tauri::AppHandle;
 
-    write(src / "app_icon_mobile.rs", """use tauri::AppHandle;\n\n#[tauri::command]\npub fn set_app_icon(_app: AppHandle, _id: String) -> Result<(), String> { Ok(()) }\n\n#[cfg(debug_assertions)]\npub fn apply_from_env(_app: &AppHandle) {}\n""")
+#[tauri::command]
+pub fn set_app_icon(_app: AppHandle, _id: String) -> Result<(), String> { Ok(()) }
+
+#[cfg(debug_assertions)]
+pub fn apply_from_env(_app: &AppHandle) {}
+""")
 
     write(src / "discord_mobile.rs", r'''use serde::Serialize;
 
@@ -188,7 +193,7 @@ pub async fn reconnect() {}
 pub async fn clear() {}
 ''')
 
-    write(src / "tray_mobile.rs", r'''use tauri::AppHandle;
+    write(src / "tray_mobile.rs", r'''use tauri::{AppHandle, Manager};
 
 pub const LAST_BUILD_PREF: &str = "tray-last-build";
 pub fn available() -> bool { false }
@@ -196,16 +201,25 @@ pub fn relabel() {}
 pub fn set_status(_status: Option<&'static str>) {}
 pub fn set_update(_version: Option<&str>) {}
 pub fn set_last_build(_build: &str) -> Result<(), String> { Ok(()) }
-pub fn show_main(app: &AppHandle) { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); } }
+pub fn show_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
 pub fn set_restore_on_exit(_on: bool) {}
 pub fn restore_after_game(app: &AppHandle) { show_main(app); }
-pub fn main_visible(app: &AppHandle) -> bool { app.get_webview_window("main").is_some_and(|w| w.is_visible().unwrap_or(false)) }
-pub fn hide_main(app: &AppHandle) { if let Some(w) = app.get_webview_window("main") { let _ = w.hide(); } }
+pub fn main_visible(app: &AppHandle) -> bool {
+    app.get_webview_window("main").is_some_and(|w| w.is_visible().unwrap_or(false))
+}
+pub fn hide_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") { let _ = w.hide(); }
+}
 pub fn init(_app: &AppHandle) {}
 ''')
 
     write(src / "overlay_mobile.rs", r'''use serde_json::Value;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub const LABEL: &str = "overlay";
 pub const DEFAULT_HOTKEY: &str = "";
@@ -231,24 +245,34 @@ pub fn open_card(app: &AppHandle, payload: Value, _to_launcher: bool) -> Result<
     app.emit("overlay-open", payload).map_err(|e| e.to_string())
 }
 pub fn main_unloaded(_app: &AppHandle) {}
-pub fn toggle(app: &AppHandle) { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); } }
+pub fn toggle(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
 pub fn relay_realtime(app: &AppHandle, payload: Value) { let _ = app.emit(RELAY_EVENT, payload); }
 pub fn relay_state(_app: &AppHandle) -> (bool, bool) { (false, true) }
 ''')
 
-    # Capabilities: desktop window/tray and updater APIs are not granted to Android.
+    # Desktop-only capabilities must not grant updater/overlay permissions to
+    # an Android webview. The existing main-commands set is kept unchanged.
     default_cap = root / "src-tauri/capabilities/default.json"
     default = default_cap.read_text(encoding="utf-8")
     if '"platforms"' not in default:
-        default = default.replace('"identifier": "default",',
-                                  '"identifier": "default",\n  "platforms": ["windows", "linux", "macOS"],', 1)
+        default = once(default, '"identifier": "default",',
+                       '"identifier": "default",\n  "platforms": ["windows", "linux", "macOS"],',
+                       "default capability")
     default_cap.write_text(default, encoding="utf-8")
+
     overlay_cap = root / "src-tauri/capabilities/overlay.json"
     overlay = overlay_cap.read_text(encoding="utf-8")
     if '"platforms"' not in overlay:
-        overlay = overlay.replace('"identifier": "overlay",',
-                                  '"identifier": "overlay",\n  "platforms": ["windows", "linux", "macOS"],', 1)
+        overlay = once(overlay, '"identifier": "overlay",',
+                       '"identifier": "overlay",\n  "platforms": ["windows", "linux", "macOS"],',
+                       "overlay capability")
     overlay_cap.write_text(overlay, encoding="utf-8")
+
     write(root / "src-tauri/capabilities/mobile.json", """{
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "mobile",
@@ -265,7 +289,9 @@ pub fn relay_state(_app: &AppHandle) -> (bool, bool) { (false, true) }
 }
 """)
 
-    # A mobile window uses the same frontend bundle, without desktop dimensions.
+    # The mobile shell keeps the upstream web frontend. Bundle identity is
+    # distinct because the upstream trademark policy forbids redistributing a
+    # third-party build as the official Millida Launcher.
     write(root / "src-tauri/tauri.android.conf.json", """{
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Launcher Android Port",
@@ -292,9 +318,9 @@ pub fn relay_state(_app: &AppHandle) -> (bool, bool) { (false, true) }
 }
 """)
 
-    print("Prepared pinned Millida source for the first Android Tauri compile.")
-    print("The original React frontend and Rust engine remain the application; desktop tray/overlay/Discord are mobile stubs.")
-    print("Minecraft Java launch and Android SAF are not implemented by this compile adapter yet.")
+    print("Prepared pinned Millida React/Rust source for Android Tauri compilation.")
+    print("Desktop tray, Discord RPC and secondary overlay are platform-stubbed.")
+    print("Android SAF and in-process Minecraft Java/JNI are not implemented by this first compile adapter.")
 
 if __name__ == "__main__":
     main()
