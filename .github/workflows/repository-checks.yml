@@ -21,7 +21,7 @@ jobs:
           test -s PORTING.md
           test -s FEATURES.md
           grep -q "не является портом Millida Launcher" README.md
-          grep -q "Критерии готовности" PORTING.md
+          grep -q "Критерии релиза" PORTING.md
           grep -q "Матрица функций" FEATURES.md
           grep -q "Build Millida Android port" .github/workflows/millida-android.yml
           echo "Documentation checks passed."
