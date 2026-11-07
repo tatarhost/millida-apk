@@ -1,0 +1,26 @@
+name: Repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check porting documents
+        shell: bash
+        run: |
+          test -s README.md
+          test -s PORTING.md
+          test -s FEATURES.md
+          grep -q "APK пока не готов" README.md
+          grep -q "Критерии готовности" PORTING.md
+          grep -q "Матрица переноса" FEATURES.md
+          echo "Documentation checks passed. This workflow does not build an APK."
