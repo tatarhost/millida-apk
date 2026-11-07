@@ -20,7 +20,8 @@ jobs:
           test -s README.md
           test -s PORTING.md
           test -s FEATURES.md
-          grep -q "APK пока не готов" README.md
+          grep -q "не является портом Millida Launcher" README.md
           grep -q "Критерии готовности" PORTING.md
-          grep -q "Матрица переноса" FEATURES.md
-          echo "Documentation checks passed. This workflow does not build an APK."
+          grep -q "Матрица функций" FEATURES.md
+          grep -q "Build Millida Android port" .github/workflows/millida-android.yml
+          echo "Documentation checks passed."
