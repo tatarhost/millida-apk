@@ -25,7 +25,6 @@ replacements = [
     ("'org.angelauramc.amethyst.scoped.controlfolder.debug'", "'net.tatarhost.launcher.scoped.controlfolder'"),
     ("'org.angelauramc.amethyst'", "'net.tatarhost.launcher'"),
     ("'org.angelauramc.amethyst.scoped.gamefolder'", "'net.tatarhost.launcher.scoped.gamefolder'"),
-    ("'org.angelauramc.amethyst.scoped.controlfolder'", "'net.tatarhost.launcher.scoped.controlfolder'"),
 ]
 for old, new in replacements:
     if old not in text:
