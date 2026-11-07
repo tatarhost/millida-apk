@@ -1,0 +1,147 @@
+name: Build and publish Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Android launcher prototype
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout this fork
+        uses: actions/checkout@v4
+
+      - name: Install JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install icon tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin webp
+
+      - name: Clone pinned Android Java runtime source
+        env:
+          SOURCE_SHA: 28d6e12d68121b7dd75f2e841058a6b7cdfe4a29
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git clone --filter=blob:none --no-checkout https://github.com/AngelAuraMC/Amethyst-Android.git upstream
+          git -C upstream checkout "$SOURCE_SHA"
+          git -C upstream submodule sync --recursive
+          git -C upstream -c protocol.version=2 submodule update --init --recursive --depth 1
+          test "$(git -C upstream rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Download Android Java 8 runtime bundle
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          repo: AngelAuraMC/angelauramc-openjdk-build
+          workflow: build.yml
+          branch: buildjre8
+          workflow_conclusion: success
+          name: jre8-pojav
+          path: upstream/app_pojavlauncher/src/main/assets/components/jre
+          if_no_artifact_found: fail
+
+      - name: Apply TatarHost name, package and icon
+        run: |
+          python3 scripts/prepare-upstream.py "$GITHUB_WORKSPACE/upstream"
+          test -d upstream/app_pojavlauncher/src/main/assets/components/jre
+          find upstream/app_pojavlauncher/src/main/assets/components/jre -type f | grep -q .
+
+      - name: Create a private test signing key for this run
+        working-directory: upstream/app_pojavlauncher
+        run: |
+          rm -f debug.keystore
+          keytool -genkeypair -noprompt \
+            -keystore debug.keystore -storepass android \
+            -alias androiddebugkey -keypass android \
+            -dname "CN=TatarHost Android Test,O=TatarHost,C=US" \
+            -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.1"
+
+      - name: Build APK
+        working-directory: upstream
+        run: |
+          chmod +x scripts/languagelist_updater.sh
+          ./scripts/languagelist_updater.sh
+          gradle :app_pojavlauncher:assembleDebug --no-daemon --stacktrace
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp app_pojavlauncher/build/outputs/apk/debug/app_pojavlauncher-debug.apk \
+            "$GITHUB_WORKSPACE/out/TatarHost-Launcher-Android-prototype.apk"
+
+      - name: Verify APK
+        run: |
+          APK="out/TatarHost-Launcher-Android-prototype.apk"
+          test -s "$APK"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee out/apk-badging.txt
+          grep -q "package: name='net.tatarhost.launcher'" out/apk-badging.txt
+          sha256sum "$APK" | tee out/SHA256SUMS.txt
+
+      - name: Prepare release notes
+        env:
+          SOURCE_SHA: 28d6e12d68121b7dd75f2e841058a6b7cdfe4a29
+        run: |
+          cat > out/RELEASE-NOTES.md <<EOF
+          ## TatarHost Launcher — Android prototype
+
+          **This is an early Android prototype, not yet a full mobile port of the Millida PC launcher.**
+
+          - Android Java runtime and rendering foundation: https://github.com/AngelAuraMC/Amethyst-Android/tree/$SOURCE_SHA
+          - Source revision: $SOURCE_SHA
+          - App ID: net.tatarhost.launcher
+          - Built as a debug-signed test APK with a TatarHost package name and icon.
+          - The existing Android runtime is the playable base; the Millida PC React/Rust interface and its complete feature set have not yet been integrated.
+
+          This is not an official Millida or Mojang/Microsoft app. Do not assume every Minecraft version, mod, loader or shader is compatible with every Android device.
+
+          The APK is intended for testing. Its signing key is generated for this workflow run, so a later test build may require uninstalling the previous test APK before installation. Do not use this test key for production updates.
+
+          SHA-256: see SHA256SUMS.txt.
+          EOF
+
+      - name: Upload APK build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TatarHost-Android-APK
+          path: |
+            out/TatarHost-Launcher-Android-prototype.apk
+            out/SHA256SUMS.txt
+            out/RELEASE-NOTES.md
+          retention-days: 30
+
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="android-prototype-$GITHUB_RUN_NUMBER"
+          gh release create "$TAG" \
+            out/TatarHost-Launcher-Android-prototype.apk \
+            out/SHA256SUMS.txt \
+            out/RELEASE-NOTES.md \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "TatarHost Android prototype $GITHUB_RUN_NUMBER" \
+            --notes-file out/RELEASE-NOTES.md \
+            --prerelease
