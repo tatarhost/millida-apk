@@ -174,13 +174,13 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     rewind = once(
         rewind,
         "fn bind_hotkey(app: &AppHandle) {",
-        '#[cfg(not(target_os = "android"))]\\nfn bind_hotkey(app: &AppHandle) {',
+        '#[cfg(not(target_os = "android"))]\nfn bind_hotkey(app: &AppHandle) {',
         "rewind desktop hotkey binder",
     )
     rewind = once(
         rewind,
         "/// Recording of one running game; dropping it stops the capture.",
-        '#[cfg(target_os = "android")]\\nfn bind_hotkey(_app: &AppHandle) {}\\n\\n/// Recording of one running game; dropping it stops the capture.',
+        '#[cfg(target_os = "android")]\nfn bind_hotkey(_app: &AppHandle) {}\n\n/// Recording of one running game; dropping it stops the capture.',
         "rewind Android hotkey binder",
     )
     rewind_path.write_text(rewind, encoding="utf-8")
@@ -189,8 +189,8 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     # handed to Android's URL handler instead of creating a second Tauri window.
     external_path = src / "engine/core/external.rs"
     external = external_path.read_text(encoding="utf-8")
-    external = once(external, "fn open_in_app(app: &AppHandle, url: &url::Url) -> Result<(), String> {", '#[cfg(not(target_os = "android"))]\\nfn open_in_app(app: &AppHandle, url: &url::Url) -> Result<(), String> {', "external desktop window")
-    external = once(external, "#[cfg(not(windows))]\\nfn open_resolved", '#[cfg(target_os = "android")]\\nfn open_in_app(_app: &AppHandle, url: &url::Url) -> Result<(), String> {\\n    tauri_plugin_opener::open_url(url.as_str(), None::<&str>).map_err(|e| e.to_string())\\n}\\n\\n#[cfg(not(windows))]\\nfn open_resolved', "external Android URL handler")
+    external = once(external, "fn open_in_app(app: &AppHandle, url: &url::Url) -> Result<(), String> {", '#[cfg(not(target_os = "android"))]\nfn open_in_app(app: &AppHandle, url: &url::Url) -> Result<(), String> {', "external desktop window")
+    external = once(external, "#[cfg(not(windows))]\nfn open_resolved", '#[cfg(target_os = "android")]\nfn open_in_app(_app: &AppHandle, url: &url::Url) -> Result<(), String> {\n    tauri_plugin_opener::open_url(url.as_str(), None::<&str>).map_err(|e| e.to_string())\n}\n\n#[cfg(not(windows))]\nfn open_resolved', "external Android URL handler")
     external_path.write_text(external, encoding="utf-8")
 
     # Android is Unix-like but has no Linux machine-id file. The per-install
@@ -198,7 +198,7 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     # namespace so the vault key derivation has an Android-specific binding.
     secrets_path = src / "secrets.rs"
     secrets = secrets_path.read_text(encoding="utf-8")
-    secrets = once(secrets, "#[cfg(windows)]\\nfn machine_binding() -> Vec<u8> {", '#[cfg(target_os = "android")]\\nfn machine_binding() -> Vec<u8> {\\n    b"net.tatarhost.millida.android".to_vec()\\n}\\n\\n#[cfg(windows)]\\nfn machine_binding() -> Vec<u8> {', "Android machine binding")
+    secrets = once(secrets, "#[cfg(windows)]\nfn machine_binding() -> Vec<u8> {", '#[cfg(target_os = "android")]\nfn machine_binding() -> Vec<u8> {\n    b"net.tatarhost.millida.android".to_vec()\n}\n\n#[cfg(windows)]\nfn machine_binding() -> Vec<u8> {', "Android machine binding")
     secrets_path.write_text(secrets, encoding="utf-8")
 
     # rfd has no Android backend. These stubs preserve the core API surface;
