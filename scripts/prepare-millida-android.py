@@ -57,6 +57,7 @@ def main() -> None:
         'tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }\n',
         'tauri-plugin-global-shortcut = "2.3.2"\n',
         'discord-rich-presence = "0.2"\n',
+        'rfd = "0.15"\n',
     ]
     for line in desktop_lines:
         c = once(c, line, "", "Cargo.toml desktop dependency move")
@@ -75,6 +76,8 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
         ("pub mod tray;\n", '#[cfg(not(target_os = "android"))]\npub mod tray;\n#[cfg(target_os = "android")]\n#[path = "tray_mobile.rs"]\npub mod tray;\n'),
         ("mod overlay;\n", '#[cfg(not(target_os = "android"))]\nmod overlay;\n#[cfg(target_os = "android")]\n#[path = "overlay_mobile.rs"]\nmod overlay;\n'),
         ("mod update_start;\n", '#[cfg(not(target_os = "android"))]\nmod update_start;\n'),
+        ("mod selfheal;\n", '#[cfg(not(target_os = "android"))]\nmod selfheal;\n#[cfg(target_os = "android")]\n#[path = "selfheal_mobile.rs"]\nmod selfheal;\n'),
+        ("mod dialogs;\n", '#[cfg(not(target_os = "android"))]\nmod dialogs;\n#[cfg(target_os = "android")]\n#[path = "dialogs_mobile.rs"]\nmod dialogs;\n'),
     ]
     for old, new in module_pairs:
         lib = once(lib, old, new, "lib.rs module selection")
@@ -157,6 +160,39 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
         "autostart_set",
     )
     system_path.write_text(system, encoding="utf-8")
+
+    # rfd has no Android backend. These stubs preserve the core API surface;
+    # Storage Access Framework integration remains a separate implementation task.
+    write(src / "dialogs_mobile.rs", """use std::path::{Path, PathBuf};
+use tauri::AppHandle;
+
+#[derive(Clone, Default)]
+pub struct MobileDialog;
+impl MobileDialog {
+    pub fn add_filter<T: AsRef<str>, U: AsRef<str>>(self, _name: T, _extensions: &[U]) -> Self { self }
+    pub fn set_title<T: AsRef<str>>(self, _title: T) -> Self { self }
+    pub fn set_directory<T: AsRef<Path>>(self, _path: T) -> Self { self }
+    pub fn set_file_name<T: AsRef<str>>(self, _name: T) -> Self { self }
+}
+pub fn arm_dialogs(_app: &AppHandle) {}
+pub fn dialog() -> MobileDialog { MobileDialog }
+pub async fn pick_file(_dialog: MobileDialog) -> Option<PathBuf> { None }
+pub async fn pick_files(_dialog: MobileDialog) -> Option<Vec<PathBuf>> { None }
+pub async fn pick_folder(_dialog: MobileDialog) -> Option<PathBuf> { None }
+pub async fn save_file(_dialog: MobileDialog) -> Option<PathBuf> { None }
+""")
+
+    write(src / "selfheal_mobile.rs", """use tauri::AppHandle;
+pub fn mark_frontend_ready() {}
+pub fn arm_selfheal(_app: &AppHandle) {}
+""")
+
+    # Native confirmation dialogs are not available in the first Android probe.
+    hooks_path = src / "engine/game/launch_hooks.rs"
+    hooks = hooks_path.read_text(encoding="utf-8")
+    hooks = once(hooks, "pub async fn set_launch_hooks(profile: String, hooks: LaunchHooks) -> Result<bool, String> {", '#[cfg(not(target_os = "android"))]\npub async fn set_launch_hooks(profile: String, hooks: LaunchHooks) -> Result<bool, String> {', "launch_hooks desktop function")
+    hooks = once(hooks, "\nfn hook_command(line: &str, game_dir: &Path, profile: &str) -> Option<Command> {", '\n#[cfg(target_os = "android")]\npub async fn set_launch_hooks(_profile: String, _hooks: LaunchHooks) -> Result<bool, String> {\n    Err("Подтверждение системным диалогом пока недоступно на Android".into())\n}\n\nfn hook_command(line: &str, game_dir: &Path, profile: &str) -> Option<Command> {', "launch_hooks Android function")
+    hooks_path.write_text(hooks, encoding="utf-8")
 
     write(src / "app_icon_mobile.rs", """use tauri::AppHandle;
 
