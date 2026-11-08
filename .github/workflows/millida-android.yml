@@ -71,11 +71,11 @@ jobs:
 
       - name: Initialize Tauri Android project
         working-directory: millida
-        run: bun run tauri android init --ci
+        run: bun run tauri android init --ci --config src-tauri/tauri.android.conf.json
 
       - name: Compile the Millida Android app
         working-directory: millida
-        run: bun run tauri android build --apk --split-per-abi
+        run: bun run tauri android build --apk --target aarch64 --config src-tauri/tauri.android.conf.json
 
       - name: Collect APKs
         working-directory: millida
