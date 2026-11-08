@@ -65,6 +65,14 @@ def main() -> None:
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 """ + "".join(desktop_lines) + "\n"
     c = once(c, "[target.'cfg(windows)'.dependencies]", desktop_block + "[target.'cfg(windows)'.dependencies]", "Cargo.toml")
+    # Tauri Android loads the Rust library through JNI; rlib alone does not
+    # produce the required libmillida_launcher_lib.so shared object.
+    c = once(
+        c,
+        'crate-type = ["rlib"]',
+        'crate-type = ["staticlib", "cdylib", "rlib"]',
+        "Cargo.toml Android library crate types",
+    )
     cargo.write_text(c, encoding="utf-8")
 
     src = root / "src-tauri/src"
