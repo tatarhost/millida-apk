@@ -76,8 +76,6 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
         ("pub mod tray;\n", '#[cfg(not(target_os = "android"))]\npub mod tray;\n#[cfg(target_os = "android")]\n#[path = "tray_mobile.rs"]\npub mod tray;\n'),
         ("mod overlay;\n", '#[cfg(not(target_os = "android"))]\nmod overlay;\n#[cfg(target_os = "android")]\n#[path = "overlay_mobile.rs"]\nmod overlay;\n'),
         ("mod update_start;\n", '#[cfg(not(target_os = "android"))]\nmod update_start;\n'),
-        ("mod selfheal;\n", '#[cfg(not(target_os = "android"))]\nmod selfheal;\n#[cfg(target_os = "android")]\n#[path = "selfheal_mobile.rs"]\nmod selfheal;\n'),
-        ("mod dialogs;\n", '#[cfg(not(target_os = "android"))]\nmod dialogs;\n#[cfg(target_os = "android")]\n#[path = "dialogs_mobile.rs"]\nmod dialogs;\n'),
     ]
     for old, new in module_pairs:
         lib = once(lib, old, new, "lib.rs module selection")
@@ -143,6 +141,14 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     )
     lib_path.write_text(lib, encoding="utf-8")
 
+    # These modules are nested under engine::core, not the crate root.
+    core_dir = src / "engine/core"
+    core_mod_path = core_dir / "mod.rs"
+    core_mod = core_mod_path.read_text(encoding="utf-8")
+    core_mod = once(core_mod, "mod selfheal;\\n", '#[cfg(not(target_os = "android"))]\\nmod selfheal;\\n#[cfg(target_os = "android")]\\n#[path = "selfheal_mobile.rs"]\\nmod selfheal;\\n', "engine/core/mod.rs selfheal module")
+    core_mod = once(core_mod, "mod dialogs;\\n", '#[cfg(not(target_os = "android"))]\\nmod dialogs;\\n#[cfg(target_os = "android")]\\n#[path = "dialogs_mobile.rs"]\\nmod dialogs;\\n', "engine/core/mod.rs dialogs module")
+    core_mod_path.write_text(core_mod, encoding="utf-8")
+
     # Autostart is not a launcher setting on Android; expose the same commands
     # to the original UI but return a truthful disabled state.
     system_path = src / "commands/system.rs"
@@ -163,7 +169,7 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 
     # rfd has no Android backend. These stubs preserve the core API surface;
     # Storage Access Framework integration remains a separate implementation task.
-    write(src / "dialogs_mobile.rs", """use std::path::{Path, PathBuf};
+    write(core_dir / "dialogs_mobile.rs", """use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 #[derive(Clone, Default)]
@@ -182,7 +188,7 @@ pub async fn pick_folder(_dialog: MobileDialog) -> Option<PathBuf> { None }
 pub async fn save_file(_dialog: MobileDialog) -> Option<PathBuf> { None }
 """)
 
-    write(src / "selfheal_mobile.rs", """use tauri::AppHandle;
+    write(core_dir / "selfheal_mobile.rs", """use tauri::AppHandle;
 pub fn mark_frontend_ready() {}
 pub fn arm_selfheal(_app: &AppHandle) {}
 """)
