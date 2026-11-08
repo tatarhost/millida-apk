@@ -145,8 +145,8 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     core_dir = src / "engine/core"
     core_mod_path = core_dir / "mod.rs"
     core_mod = core_mod_path.read_text(encoding="utf-8")
-    core_mod = once(core_mod, "mod selfheal;\\n", '#[cfg(not(target_os = "android"))]\\nmod selfheal;\\n#[cfg(target_os = "android")]\\n#[path = "selfheal_mobile.rs"]\\nmod selfheal;\\n', "engine/core/mod.rs selfheal module")
-    core_mod = once(core_mod, "mod dialogs;\\n", '#[cfg(not(target_os = "android"))]\\nmod dialogs;\\n#[cfg(target_os = "android")]\\n#[path = "dialogs_mobile.rs"]\\nmod dialogs;\\n', "engine/core/mod.rs dialogs module")
+    core_mod = once(core_mod, "mod selfheal;\n", '#[cfg(not(target_os = "android"))]\nmod selfheal;\n#[cfg(target_os = "android")]\n#[path = "selfheal_mobile.rs"]\nmod selfheal;\n', "engine/core/mod.rs selfheal module")
+    core_mod = once(core_mod, "mod dialogs;\n", '#[cfg(not(target_os = "android"))]\nmod dialogs;\n#[cfg(target_os = "android")]\n#[path = "dialogs_mobile.rs"]\nmod dialogs;\n', "engine/core/mod.rs dialogs module")
     core_mod_path.write_text(core_mod, encoding="utf-8")
 
     # Autostart is not a launcher setting on Android; expose the same commands
