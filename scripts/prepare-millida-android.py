@@ -74,6 +74,7 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
         ("mod discord;\n", '#[cfg(not(target_os = "android"))]\nmod discord;\n#[cfg(target_os = "android")]\n#[path = "discord_mobile.rs"]\nmod discord;\n'),
         ("pub mod tray;\n", '#[cfg(not(target_os = "android"))]\npub mod tray;\n#[cfg(target_os = "android")]\n#[path = "tray_mobile.rs"]\npub mod tray;\n'),
         ("mod overlay;\n", '#[cfg(not(target_os = "android"))]\nmod overlay;\n#[cfg(target_os = "android")]\n#[path = "overlay_mobile.rs"]\nmod overlay;\n'),
+        ("mod update_start;\n", '#[cfg(not(target_os = "android"))]\nmod update_start;\n'),
     ]
     for old, new in module_pairs:
         lib = once(lib, old, new, "lib.rs module selection")
@@ -322,7 +323,7 @@ pub fn relay_state(_app: &AppHandle) -> (bool, bool) { (false, true) }
 """)
 
     print("Prepared pinned Millida React/Rust source for Android Tauri compilation.")
-    print("Desktop tray, Discord RPC and secondary overlay are platform-stubbed.")
+    print("Desktop tray, Discord RPC, secondary overlay and desktop updater startup are excluded/stubbed.")
     print("Android SAF and in-process Minecraft Java/JNI are not implemented by this first compile adapter.")
 
 if __name__ == "__main__":
