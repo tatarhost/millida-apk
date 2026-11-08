@@ -400,7 +400,7 @@ pub fn relay_state(_app: &AppHandle) -> (bool, bool) { (false, true) }
   "bundle": {
     "active": true,
     "android": {
-      "minSdkVersion": 24
+      "minSdkVersion": 26
     }
   }
 }
