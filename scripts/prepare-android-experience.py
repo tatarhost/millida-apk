@@ -23,12 +23,14 @@ def put(path: Path, content: str) -> None:
 def png_chunk(kind: bytes, payload: bytes) -> bytes:
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
 
-def make_icon(path: Path, size: int = 1024) -> None:
+def make_icon(path: Path, size: int = 1024, transparent: bool = False) -> None:
     pixels = bytearray(size * size * 4)
     cx = cy = size / 2
     radius = size * 0.62
     for y in range(size):
         for x in range(size):
+            if transparent:
+                continue
             d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2) / radius
             glow = max(0.0, 1.0 - d) * 9.0
             i = (y * size + x) * 4
@@ -40,6 +42,8 @@ def make_icon(path: Path, size: int = 1024) -> None:
         (350, 554), (440, 624), (770, 624), (770, 754),
         (388, 754), (210, 600), (210, 424), (388, 270),
     ]
+    scale = size / 1024
+    polygon = [(round(x * scale), round(y * scale)) for x, y in polygon]
     min_y = min(p[1] for p in polygon)
     max_y = max(p[1] for p in polygon)
     for y in range(min_y, max_y):
@@ -99,6 +103,13 @@ def main() -> None:
     put(root / "public/cheatlab-logo.svg", icon_svg)
     put(root / "public/favicon.svg", icon_svg)
     make_icon(root / "src-tauri/icons/icon.png")
+    for density, base in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]:
+        folder = root / "src-tauri/icons/android" / f"mipmap-{density}"
+        make_icon(folder / "ic_launcher.png", base)
+        make_icon(folder / "ic_launcher_round.png", base)
+        make_icon(folder / "ic_launcher_foreground.png", int(base * 2.25), transparent=True)
+    put(root / "src-tauri/icons/android/values/ic_launcher_background.xml",
+        '<resources><color name="ic_launcher_background">#0D1410</color></resources>\\n')
 
     index_path = root / "index.html"
     index = index_path.read_text(encoding="utf-8")
