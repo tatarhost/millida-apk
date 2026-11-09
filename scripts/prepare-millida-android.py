@@ -317,6 +317,69 @@ pub fn arm_selfheal(_app: &AppHandle) {}
     hooks = once(hooks, "\nfn hook_command(line: &str, game_dir: &Path, profile: &str) -> Option<Command> {", '\n#[cfg(target_os = "android")]\npub async fn set_launch_hooks(_profile: String, _hooks: LaunchHooks) -> Result<bool, String> {\n    Err("Подтверждение системным диалогом пока недоступно на Android".into())\n}\n\nfn hook_command(line: &str, game_dir: &Path, profile: &str) -> Option<Command> {', "launch_hooks Android function")
     hooks_path.write_text(hooks, encoding="utf-8")
 
+    # The upstream game runner starts a desktop JVM with std::process::Command.
+    # Android needs an in-process ARM64 JVM + JNI + Surface renderer, none of
+    # which is part of this first port. Never attempt the desktop spawn path:
+    # report a clear UI error instead of letting Play crash/close the app.
+    launch_path = src / "commands/launch.rs"
+    launch = launch_path.read_text(encoding="utf-8")
+    launch = once(
+        launch,
+        '    // A running build only needs its window raised: no sign-in round trip for that.\n',
+        '''    #[cfg(target_os = "android")]
+    {
+        let _ = (&app, &version, &nick, fabric, ram_mb, &auth, prep_ms);
+        return Err("Запуск Minecraft на Android пока не поддерживается этой сборкой: для него ещё не подключены ARM64 Java Runtime, JNI и Android-графика. Файлы игры сохранены; приложение не будет закрываться.".into());
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+    // A running build only needs its window raised: no sign-in round trip for that.
+''',
+        "Android launch guard",
+    )
+    launch = once(
+        launch,
+        '''        .await
+}
+
+/// Play on a build that is already running''',
+        '''        .await
+    }
+}
+
+/// Play on a build that is already running''',
+        "Android launch guard block end",
+    )
+    launch = once(
+        launch,
+        '''    if let Some(outcome) = engine::bring_running_forward(&profile, false) {
+        return Ok(outcome);
+    }
+    engine::note_launch_prep(&profile, prep_ms);
+    engine::begin_launch()
+        .run(engine::quick_play(app, profile, nick, ram_mb, world, server, auth))
+        .await
+}''',
+        '''    #[cfg(target_os = "android")]
+    {
+        let _ = (&app, &profile, &nick, ram_mb, &world, &server, &auth, prep_ms);
+        return Err("Быстрый запуск Minecraft на Android пока недоступен: требуется ARM64 Java Runtime, JNI и Android-графика. Файлы игры сохранены.".into());
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        if let Some(outcome) = engine::bring_running_forward(&profile, false) {
+            return Ok(outcome);
+        }
+        engine::note_launch_prep(&profile, prep_ms);
+        engine::begin_launch()
+            .run(engine::quick_play(app, profile, nick, ram_mb, world, server, auth))
+            .await
+    }
+}''',
+        "Android quick-play guard",
+    )
+    launch_path.write_text(launch, encoding="utf-8")
+
     write(src / "app_icon_mobile.rs", """use tauri::AppHandle;
 
 #[tauri::command]
