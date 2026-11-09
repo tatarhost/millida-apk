@@ -132,12 +132,12 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     lib = once(lib, old_builder, new_builder, "lib.rs plugin builder")
     lib = once(
         lib,
-        "    builder.setup(|app| {\\n",
+        "    builder.setup(|app| {",
         """    builder.setup(|app| {
             // Android: route all launcher/game data and encrypted login tokens
             // into the package-private app data directory, never the process cwd.
             #[cfg(target_os = "android")]
-            engine::set_android_data_dir(app.path().app_data_dir())?;
+            engine::set_android_data_dir(app.path().app_data_dir()?)?;
 """,
         "Android private app data directory",
     )
@@ -167,7 +167,7 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     paths = paths_path.read_text(encoding="utf-8")
     paths = once(
         paths,
-        "use std::path::PathBuf;\\n",
+        "use std::path::PathBuf;",
         """use std::path::PathBuf;
 #[cfg(target_os = "android")]
 static ANDROID_DATA_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
