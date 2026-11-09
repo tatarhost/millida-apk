@@ -901,9 +901,9 @@ export function AndroidBottomNav() {
     deep = replace_once(deep, "if (url.protocol !== 'millida:') return", "if (url.protocol !== 'tatarlauncher:') return", "Android deep-link scheme")
     deep_path.write_text(deep, encoding="utf-8")
 
-    # Keep the startup gate strict. The Android-first touch layout adds a small
-    # amount of critical CSS (safe-area, portrait/landscape and touch targets).
-    # Raise only the CSS cap by 5 KB; JS, gzip and entry caps remain unchanged here.
+    # Keep the startup gate strict. Android adds critical phone CSS and a small
+    # native-session bootstrap in the initial JS. Raise only CSS by 5 KB and JS
+    # by 1 KB; gzip and entry caps remain unchanged.
     budget_path = root / "scripts/check-startup-budget.mjs"
     budget = budget_path.read_text(encoding="utf-8")
     budget = replace_once(
@@ -913,6 +913,12 @@ export function AndroidBottomNav() {
         "Android startup CSS budget rationale",
     )
     budget = replace_once(budget, "  startCss: 415_000,", "  startCss: 420_000,", "Android startup CSS cap")
+    budget = replace_once(
+        budget,
+        "  startJs: 833_000,",
+        "  startJs: 834_000,",
+        "Android startup JS cap",
+    )
     budget_path.write_text(budget, encoding="utf-8")
 
     print("Applied CHEATLAB branding, website device authorization, encrypted native session storage and Android touch layout.")
