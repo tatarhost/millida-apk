@@ -54,6 +54,10 @@ jobs:
           git -C millida checkout "$SOURCE_SHA"
           test "$(git -C millida rev-parse HEAD)" = "$SOURCE_SHA"
 
+      - name: Validate Android preparation scripts
+        run: |
+          python3 -m py_compile scripts/prepare-millida-android.py scripts/prepare-android-experience.py
+
       - name: Apply Android platform adapter
         run: |
           python3 scripts/prepare-millida-android.py "$GITHUB_WORKSPACE/millida"
