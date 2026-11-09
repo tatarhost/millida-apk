@@ -1,18 +1,26 @@
-# Android port build status
+# Android build status — CHEATLAB Launcher
 
-This repository's Android build job checks the **real upstream source** from `millida/launcher`, pinned to commit `a9cec042ad1515a495a4f7c550e71f7423b65812`. It does not use Amethyst or Pojav as a substitute.
+The build uses the real upstream React/TypeScript and Rust/Tauri source from `millida/launcher`, pinned to `a9cec042ad1515a495a4f7c550e71f7423b65812`. It does not use Amethyst or Pojav as a substitute.
 
-The first CI run is a compatibility/build probe. A successful Tauri APK build would prove only that the Millida application shell compiles for Android; it would **not** prove Minecraft can launch. The upstream Rust launcher currently starts desktop Java with `std::process::Command`, so Minecraft-on-Android still requires a separate Android JVM/JNI and graphics integration.
+## Android-specific changes
 
-The workflow intentionally uploads an APK only if the real upstream Android build succeeds. It does not publish a GitHub Release or claim runtime compatibility.
+- CHEATLAB app name, package ID, custom SVG/PNG icon and Android mipmap assets.
+- Phone layout with bottom navigation, safe-area spacing, scrollable content and touch-friendly controls.
+- CHEATLAB website device authorization at `https://cheatlab.fun/app-authorize.html`.
+- Optional `clab2-…` account-key login with email OTP.
+- Session tokens remain in the native encrypted Rust vault and are not exposed to React state/localStorage.
+- Microsoft/offline Minecraft account selection remains a separate step.
 
-## Legal/branding boundary
+The CHEATLAB Worker device authorization endpoints and D1 migration are deployed from the `tatarhost/cheatlab` repository. Site pages are served from `cheatlab.fun`.
 
-The upstream project is GPL-3.0-only, but its name, logos, icons, art, service credentials and infrastructure are not granted by the code license. Public forks must use a distinct product name, application ID, icons and service registrations, and must not present themselves as official Millida builds. See upstream [TRADEMARK.md](https://github.com/millida/launcher/blob/main/TRADEMARK.md).
+## Important limitation
 
-## Next engineering gates
+A successful APK build proves the Android app shell compiles; it does **not** prove Minecraft can launch. Upstream still uses desktop Java process startup via `std::process::Command`. Android ARM64 JVM/JNI, graphics surface/backend, Android Storage Access Framework and in-game touch controls remain unimplemented. Do not describe this build as a fully playable Minecraft Android launcher until those parts are implemented and tested on a physical device.
 
-1. Make the upstream Tauri/Rust core compile on Android by gating desktop-only plugins and OS integrations.
-2. Replace desktop file dialogs and absolute-path assumptions with Android Storage Access Framework and app-private storage.
-3. Integrate a supported ARM64 Java runtime through JNI and an Android graphics/input backend.
-4. Test Vanilla first, then individual loader families and content types on a physical Android device.
+## Signing
+
+Current CI uses a temporary test keystore to produce an installable APK. It is suitable for an installation smoke test, but its signing identity changes from build to build. A stable public release needs a persistent release keystore stored only in GitHub Secrets.
+
+## Trademark / license
+
+The upstream source is GPL-3.0-only, but its name, logo and branding are not covered by GPL. The public fork therefore uses the distinct CHEATLAB Launcher name, package ID and artwork, and identifies itself as based on Millida rather than as an official Millida build. See upstream [TRADEMARK.md](https://github.com/millida/launcher/blob/main/TRADEMARK.md).
