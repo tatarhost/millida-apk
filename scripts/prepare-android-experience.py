@@ -695,7 +695,7 @@ export function AndroidBottomNav() {
     hosts = hosts_path.read_text(encoding="utf-8")
     hosts = replace_once(
         hosts,
-        "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\\n",
+        "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\n",
         "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\\nexport const AndroidBottomNav = lateMount(() => import('./AndroidBottomNav').then((m) => ({ default: m.AndroidBottomNav })), 200)\\n",
         "Android bottom navigation lazy host",
     )
