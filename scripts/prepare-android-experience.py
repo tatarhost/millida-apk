@@ -817,8 +817,83 @@ export function AndroidBottomNav() {
   .android-bottom-nav__item span { display:none; }
   #scr-app.app > .content { padding-bottom:calc(58px + env(safe-area-inset-bottom)) !important; }
 }
+/* Phone-first screen geometry: keep every page inside the safe viewport. */
+@media (max-width:760px) {
+  #scr-app.app > .content { box-sizing:border-box; }
+  #scr-app .screen { box-sizing:border-box; }
+  #scr-app .screen > :is(.page-head,.hub-pane,.hero-live-wrap,.builds-wrap,.mods-wrap) { max-width:100%; min-width:0; }
+  #scr-app .page-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+  #scr-app .page-head h1 { min-width:0; font-size:clamp(22px,6vw,30px); }
+  #scr-app :is(.hub-grid,.ph-row,.ph-st-grid,.bx-grid,.build-grid,.cards-grid) {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+    min-width:0;
+  }
+  #scr-app :is(.ph-card,.bx-card,.build-card,.build-tile) { min-width:0; max-width:100%; }
+  #scr-app :is(.ph-card-body,.bp-meta,.build-card-body) { min-width:0; overflow-wrap:anywhere; }
+  #scr-app :is(.ph-card img,.ph-card-art img,.build-card img) { max-width:100%; object-fit:cover; }
+  #scr-app :is(.btn,.btn.lg,.btn.md) { min-height:46px; }
+  #scr-app :is(input,select,textarea) { max-width:100%; box-sizing:border-box; }
+  #scr-app .modal-bg { padding:12px; box-sizing:border-box; }
+  #scr-app .modal { margin:auto; }
+  #scr-app .lobby-wrap { width:100%; max-width:100%; }
+  #scr-app .lobby-row { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+  #scr-app .lobby-mode { min-width:0; width:100%; }
+  #scr-app .lobby-side { width:100%; min-width:0; }
+  #scr-app .play-col { width:100%; min-width:0; }
+  #scr-app #playBtn { width:100%; min-height:54px; }
+  #scr-app .lobby-side-top { min-height:38px; }
+  #scr-app .android-version-shortcut {
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-height:38px; padding:0 13px; border:1px solid rgba(140,233,168,.28);
+    border-radius:10px; color:#dff7e5; background:#17251c;
+    font:700 12px/1.2 var(--m-font,system-ui); touch-action:manipulation;
+  }
+  #scr-app .android-version-shortcut svg { width:16px; height:16px; }
+  #scr-app .screen :is(.ph-shelf-head,.hub-tools,.ph-mode-tools) { flex-wrap:wrap; }
+  #scr-app .screen :is(.ph-shelf-head > *, .hub-tools > *, .ph-mode-tools > *) { min-width:0; }
+}
+@media (max-width:760px) and (orientation:landscape) {
+  #scr-app.app > .content { padding-left:14px !important; padding-right:14px !important; }
+  #scr-app .lobby-row { grid-template-columns:minmax(0,1fr) minmax(170px,.42fr); align-items:stretch; }
+  #scr-app .lobby-mode-card { min-height:170px; }
+  #scr-app .play-col { align-self:stretch; display:flex; align-items:center; }
+  #scr-app #playBtn { min-height:64px; }
+  #scr-app :is(.hub-grid,.ph-row,.ph-st-grid,.bx-grid,.build-grid,.cards-grid) {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+@media (max-width:760px) and (orientation:portrait) {
+  #scr-app .lobby-row { grid-template-columns:minmax(0,1fr); }
+  #scr-app .lobby-mode-card { min-height:154px; }
+}
 @media (prefers-reduced-motion:reduce) { .android-bottom-nav__item { transition:none !important; } }
 ''')
+
+    # Android gets a permanent, obvious route to the Minecraft version/build picker.
+    play_path = root / "src/screens/Play.tsx"
+    play = play_path.read_text(encoding="utf-8")
+    play = replace_once(
+        play,
+        "import { setScreen, showToast, useUi } from '../state/ui'",
+        "import { openModal, setScreen, showToast, useUi } from '../state/ui'",
+        "Android version picker action",
+    )
+    play = replace_once(
+        play,
+        """        <div className="lobby-side-top">
+          <span />
+          <span className="lobby-tools" />
+        </div>""",
+        """        <div className="lobby-side-top">
+          <button className="android-version-shortcut" type="button" onClick={() => openModal('nbModal')}>
+            <Icon id="i-box2" /> {t('Версии Minecraft')}
+          </button>
+          <span className="lobby-tools" />
+        </div>""",
+        "Android always-visible Minecraft version picker",
+    )
+    play_path.write_text(play, encoding="utf-8")
 
     deep_path = root / "src/lib/deeplink.ts"
     deep = deep_path.read_text(encoding="utf-8")
