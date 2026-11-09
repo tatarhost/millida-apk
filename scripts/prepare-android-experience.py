@@ -467,15 +467,24 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     login = login_path.read_text(encoding="utf-8")
     login = replace_once(
         login,
-        "import { PixelField } from '../components/lobby/PixelField'\n",
-        "import { PixelField } from '../components/lobby/PixelField'\nimport { CheatLabLogin } from '../components/CheatLabLogin'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../state/ui'\n",
+        "import { PixelField } from '../components/lobby/PixelField'\\n",
+        "import { PixelField } from '../components/lobby/PixelField'\\nimport { CheatLabLogin } from '../components/CheatLabLogin'\\nimport { hasTauri } from '../ipc/tauri'\\nimport { startGameStep } from '../state/firstRun'\\nimport { enterApp } from '../state/ui'\\n",
         "Android login imports",
+    )
+    login = replace_once(login, "function GameAccountStep() {",
+                         "function GameAccountStep({ androidAutoEnter = false }: { androidAutoEnter?: boolean }) {",
+                         "Android game account step props")
+    login = replace_once(
+        login,
+        "  useEffect(() => {\\n    if (added) finishFirstRun()\\n  }, [added])",
+        "  useEffect(() => {\\n    if (added) { finishFirstRun(); if (androidAutoEnter) enterApp() }\\n  }, [added, androidAutoEnter])",
+        "Android game account completion",
     )
     login = replace_once(
         login,
-        "        {step ? (\n          <GameAccountStep androidAutoEnter={hasTauri() && /Android/i.test(navigator.userAgent)} />\n        ) : (\n        <div className=\"login-form lg2-card\">",
+        "        {step ? (\\n          <GameAccountStep />\\n        ) : (\\n        <div className=\\"login-form lg2-card\\">",
         """        {step ? (
-          <GameAccountStep />
+          <GameAccountStep androidAutoEnter={hasTauri() && /Android/i.test(navigator.userAgent)} />
         ) : hasTauri() && /Android/i.test(navigator.userAgent) ? (
           <CheatLabLogin onAuthenticated={() => startGameStep()} />
         ) : (
