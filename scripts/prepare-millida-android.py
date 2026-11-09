@@ -112,7 +112,8 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     new_builder = """    let builder = tauri::Builder::default()
         .plugin(navguard::init())
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_clipboard_manager::init());
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_opener::init());
     #[cfg(not(target_os = "android"))]
     let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -199,6 +200,32 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     external = external_path.read_text(encoding="utf-8")
     external = once(external, "fn open_in_app(app: &AppHandle, url: &url::Url) -> Result<(), String> {", '#[cfg(not(target_os = "android"))]\nfn open_in_app(app: &AppHandle, url: &url::Url) -> Result<(), String> {', "external desktop window")
     external = once(external, "#[cfg(not(windows))]\nfn open_resolved", '#[cfg(target_os = "android")]\nfn open_in_app(_app: &AppHandle, url: &url::Url) -> Result<(), String> {\n    tauri_plugin_opener::open_url(url.as_str(), None::<&str>).map_err(|e| e.to_string())\n}\n\n#[cfg(not(windows))]\nfn open_resolved', "external Android URL handler")
+    external = once(
+        external,
+        """pub fn open_external_anyhow(app: &AppHandle, url: &str) -> Result<(), String> {
+    let parsed = validate_external_url(url)?;
+    if open_resolved(&parsed).is_ok() {
+        return Ok(());
+    }
+    open_in_app(app, &parsed)
+}""",
+        """#[cfg(target_os = "android")]
+pub fn open_external_anyhow(_app: &AppHandle, url: &str) -> Result<(), String> {
+    let parsed = validate_external_url(url)?;
+    tauri_plugin_opener::open_url(parsed.as_str(), None::<&str>)
+        .map_err(|e| format!("Не удалось открыть ссылку в системном браузере Android: {e}"))
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn open_external_anyhow(app: &AppHandle, url: &str) -> Result<(), String> {
+    let parsed = validate_external_url(url)?;
+    if open_resolved(&parsed).is_ok() {
+        return Ok(());
+    }
+    open_in_app(app, &parsed)
+}""",
+        "Android system-default browser handoff",
+    )
     external_path.write_text(external, encoding="utf-8")
 
     # Android is Unix-like but has no Linux machine-id file. The per-install
