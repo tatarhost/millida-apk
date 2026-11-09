@@ -221,11 +221,13 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
       if (result.verificationRequired && result.challengeId) {
         setChallenge({ challengeId: result.challengeId, email: result.email, expiresAt: result.expiresAt })
         setStatus(result.email ? 'Код отправлен на ' + result.email : 'Код отправлен на почту аккаунта.')
+        setBusy(false)
       } else if (result.user) {
         setBusy(false)
         onAuthenticated()
       } else {
         setStatus('Сервер не вернул подтверждение входа.')
+        setBusy(false)
       }
     } catch (error) {
       setStatus(String(error))
