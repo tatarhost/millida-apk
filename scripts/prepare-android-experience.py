@@ -447,17 +447,24 @@ pub async fn cheatlab_logout() -> Result<(), String> {
     )
     lib_path.write_text(lib, encoding="utf-8")
 
-    # Frontend wrappers call only native commands; no account token reaches JS.
-    ipc_path = root / "src/ipc/commands.ts"
-    ipc = ipc_path.read_text(encoding="utf-8")
-    block = """
+    # The CHEATLAB IPC bridge is a separate lazy chunk; it keeps the
+    # Android-only account implementation out of the initial UI bundle.
+    put(root / "src/ipc/cheatlab.ts", r'''import { tauri } from './tauri'
+
+const invoke = <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
+  const bridge = tauri()
+  if (!bridge) return Promise.reject(new Error('no tauri'))
+  return bridge.core.invoke<T>(command, args)
+}
+
 export interface CheatLabDeviceInit {
   deviceCode: string
   verificationUrl: string
   expiresInSec: number
 }
 export const cheatLabDeviceInit = () => invoke<CheatLabDeviceInit>('cheatlab_device_init')
-export const cheatLabDevicePoll = (deviceCode: string) => invoke<{status: 'pending' | 'expired' | 'denied' | 'ok'; user?: {id: string; nick: string}}> ('cheatlab_device_poll', { deviceCode })
+export const cheatLabDevicePoll = (deviceCode: string) =>
+  invoke<{status: 'pending' | 'expired' | 'denied' | 'ok'; user?: {id: string; nick: string}}>('cheatlab_device_poll', { deviceCode })
 export const cheatLabSessionStatus = async () => {
   const result = await invoke<{user: {id: string; nick: string} | null}>('cheatlab_session_status')
   return result.user
@@ -467,12 +474,9 @@ export const cheatLabKeyLoginStart = (key: string, email?: string) =>
 export const cheatLabKeyLoginVerify = (challengeId: string, code: string) =>
   invoke<{user: {id: string; nick: string}}>('cheatlab_key_login_verify', { challengeId, code })
 export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
+''')
 
-"""
-    ipc = replace_once(ipc, "export const openUrl = (url: string) =>\n", block + "export const openUrl = (url: string) =>\n", "CHEATLAB IPC wrappers")
-    ipc_path.write_text(ipc, encoding="utf-8")
-
-    # Add the native CHEATLAB login only to Android; the desktop source remains
+        # Add the native CHEATLAB login only to Android; the desktop source remains
     # as it was. The user then chooses a Microsoft or offline game account.
     login_path = root / "src/screens/Login.tsx"
     login = login_path.read_text(encoding="utf-8")
