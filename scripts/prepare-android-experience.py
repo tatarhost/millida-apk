@@ -616,7 +616,7 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
 
     put(root / "src/components/AndroidBottomNav.tsx", r'''import { Icon } from './Icon'
 import { useT } from '../i18n'
-import { useUi, setScreen } from '../state/ui'
+import { useUi, setScreen, type ScreenId } from '../state/ui'
 
 export function AndroidBottomNav() {
   const t = useT()
