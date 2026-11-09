@@ -535,7 +535,7 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     app = replace_once(
         app,
         "import { loadProfileSettings } from './ipc/commands'\n",
-        "import { loadProfileSettings, cheatLabSessionStatus } from './ipc/commands'\n",
+        "import { loadProfileSettings } from './ipc/commands'\n",
         "Android boot CHEATLAB status import",
     )
     app = replace_once(
@@ -546,7 +546,7 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
       if (!preview && hasTauri() && /Android/i.test(navigator.userAgent)) {
         if (androidAuthStarted) return
         androidAuthStarted = true
-        void cheatLabSessionStatus().then((user) => {
+        void import('./ipc/cheatlab').then(({ cheatLabSessionStatus }) => cheatLabSessionStatus()).then((user) => {
           if (user && hasGameAccount()) {
             enterApp()
           } else {
