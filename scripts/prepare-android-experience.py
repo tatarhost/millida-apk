@@ -687,7 +687,7 @@ export function AndroidBottomNav() {
                        "  AndroidBottomNav,\n  AccountAddModal,\n",
                        "Add lazy Android nav to host imports")
     app = replace_once(app, "          </main>\n        </div>\n\n        {instanceMounted",
-                       "          </main>\n          <AndroidBottomNav screen={screen} />\n        </div>\n\n        {instanceMounted",
+                       "          </main>\n          <AndroidBottomNav />\n        </div>\n\n        {instanceMounted",
                        "App Android nav mount")
     app_path.write_text(app, encoding="utf-8")
 
@@ -696,7 +696,7 @@ export function AndroidBottomNav() {
     hosts = replace_once(
         hosts,
         "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\n",
-        "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\\nexport const AndroidBottomNav = lateMount(() => import('./AndroidBottomNav').then((m) => ({ default: m.AndroidBottomNav })), 200)\\n",
+        "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\nexport const AndroidBottomNav = lateMount(() => import('./AndroidBottomNav').then((m) => ({ default: m.AndroidBottomNav })), 200)\n",
         "Android bottom navigation lazy host",
     )
     hosts_path.write_text(hosts, encoding="utf-8")
