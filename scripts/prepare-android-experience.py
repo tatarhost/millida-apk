@@ -522,12 +522,6 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     )
     app = replace_once(
         app,
-        "import { useUi, closeModal, setScreen as gotoScreen, showToast } from './state/ui'\n",
-        "import { useUi, closeModal, setScreen as gotoScreen, showToast, enterApp } from './state/ui'\n",
-        "Android boot enterApp import",
-    )
-    app = replace_once(
-        app,
         "    const decide = (check: SessionCheck, rechecks: number) => {\n      const acc = getAccount()\n",
         """    let androidAuthStarted = false
     const decide = (check: SessionCheck, rechecks: number) => {
