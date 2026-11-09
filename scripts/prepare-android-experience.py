@@ -559,6 +559,42 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     )
     login_path.write_text(login, encoding="utf-8")
 
+    # Replace every visible upstream launcher mark with the fork's own brand.
+    brand_edits = {
+        "src/components/Titlebar.tsx": [
+            ('src="/millida-logo.svg"', 'src="/cheatlab-logo.svg"'),
+            ("MILLIDA LAUNCHER", "CHEATLAB LAUNCHER"),
+        ],
+        "src/components/BootUpdate.tsx": [
+            ('src="/millida-logo.svg"', 'src="/cheatlab-logo.svg"'),
+            ("'Millida Launcher'", "'CHEATLAB Launcher'"),
+        ],
+        "src/components/Welcome.tsx": [
+            ('src="/millida-logo.svg"', 'src="/cheatlab-logo.svg"'),
+            ("t('в Millida')", "t('в CHEATLAB Launcher')"),
+        ],
+        "src/modals/Onboarding.tsx": [
+            ('src="/millida-logo.svg"', 'src="/cheatlab-logo.svg"'),
+            ("переедут в Millida целиком", "переедут в CHEATLAB Launcher целиком"),
+        ],
+        "src/modals/Settings.tsx": [
+            ('src="/millida-logo.svg"', 'src="/cheatlab-logo.svg"'),
+            ("<b>Millida Launcher</b>", "<b>CHEATLAB Launcher</b>"),
+        ],
+        "src/screens/HostingManage.tsx": [
+            ("'/millida-logo.svg'", "'/cheatlab-logo.svg'"),
+        ],
+        "src/styles/12-pixel.css": [
+            ("img[src$='/millida-logo.svg']", "img[src$='/cheatlab-logo.svg']"),
+        ],
+    }
+    for relative, edits in brand_edits.items():
+        target = root / relative
+        source = target.read_text(encoding="utf-8")
+        for before, after in edits:
+            source = replace_once(source, before, after, f"CHEATLAB branding: {relative}")
+        target.write_text(source, encoding="utf-8")
+
     # Android boot checks the encrypted CHEATLAB session instead of attempting
     # to sign into the upstream Millida service.
     app_path = root / "src/App.tsx"
