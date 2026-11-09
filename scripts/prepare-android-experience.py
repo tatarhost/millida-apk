@@ -136,6 +136,17 @@ import { openUrl } from '../ipc/commands'
 type Mode = 'site' | 'key'
 type KeyChallenge = { challengeId: string; email?: string; expiresAt?: number }
 
+const errorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  try {
+    const value = JSON.stringify(error)
+    return value && value !== '{}' ? value : 'Неизвестная ошибка'
+  } catch {
+    return 'Неизвестная ошибка'
+  }
+}
+
 export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void }) {
   const t = useT()
   const [mode, setMode] = useState<Mode>('site')
@@ -148,22 +159,38 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
   const [challenge, setChallenge] = useState<KeyChallenge | null>(null)
   const deviceRef = useRef<string>('')
   const alive = useRef(true)
+  const checkingSession = useRef(false)
+  const authenticated = useRef(false)
 
   useEffect(() => {
     alive.current = true
-    const checkSession = () => {
-      void cheatLabSessionStatus().then((user) => {
-        if (alive.current && user) onAuthenticated()
-      }).catch(() => {})
+    const checkSession = async () => {
+      if (!alive.current || checkingSession.current || authenticated.current) return
+      checkingSession.current = true
+      try {
+        const user = await cheatLabSessionStatus()
+        if (alive.current && user && !authenticated.current) {
+          authenticated.current = true
+          onAuthenticated()
+        }
+      } catch {
+        // Ошибку сети повторно проверим, когда приложение вернётся на экран.
+      } finally {
+        checkingSession.current = false
+      }
     }
-    const onResume = () => checkSession()
-    checkSession()
+    const onResume = () => {
+      if (document.visibilityState === 'visible') void checkSession()
+    }
+    void checkSession()
     document.addEventListener('visibilitychange', onResume)
     window.addEventListener('focus', onResume)
+    window.addEventListener('pageshow', onResume)
     return () => {
       alive.current = false
       document.removeEventListener('visibilitychange', onResume)
       window.removeEventListener('focus', onResume)
+      window.removeEventListener('pageshow', onResume)
     }
   }, [])
 
@@ -188,6 +215,10 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
           const result = await cheatLabDevicePoll(deviceRef.current)
           if (!alive.current) return
           if (result.status === 'ok') {
+            const savedUser = await cheatLabSessionStatus()
+            if (!alive.current) return
+            if (!savedUser) throw new Error('Сайт подтвердил вход, но приложение не смогло проверить сохранённую сессию. Вернись в браузер и повтори подтверждение.')
+            authenticated.current = true
             setStatus('CHEATLAB подключён. Открываем выбор игрового аккаунта…')
             setBusy(false)
             onAuthenticated()
@@ -200,7 +231,7 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
           }
         } catch (error) {
           if (!alive.current) return
-          setStatus(String(error))
+          setStatus(errorMessage(error))
         }
         window.setTimeout(() => { void poll() }, 1900)
       }
@@ -219,20 +250,23 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
     setBusy(true)
     setStatus('Проверяем ключ и отправляем код подтверждения…')
     try {
-      const result = await cheatLabKeyLoginStart(key.trim(), email.trim() || undefined)
-      if (result.verificationRequired && result.challengeId) {
+      const result = await cheatLabKeyLoginStart(key.trim().replace(/\\s+/g, ''), email.trim() || undefined)
+      if ((result.verificationRequired || result.challengeId) && result.challengeId) {
         setChallenge({ challengeId: result.challengeId, email: result.email, expiresAt: result.expiresAt })
         setStatus(result.email ? 'Код отправлен на ' + result.email : 'Код отправлен на почту аккаунта.')
         setBusy(false)
       } else if (result.user) {
+        const savedUser = await cheatLabSessionStatus()
+        if (!savedUser) throw new Error('Ключ принят, но сессия не сохранилась. Повтори вход.')
+        authenticated.current = true
         setBusy(false)
         onAuthenticated()
       } else {
-        setStatus('Сервер не вернул подтверждение входа.')
+        setStatus('Сервер не вернул подтверждение входа. Проверь ключ и попробуй ещё раз.')
         setBusy(false)
       }
     } catch (error) {
-      setStatus(String(error))
+      setStatus(errorMessage(error))
       setBusy(false)
     }
   }
@@ -246,11 +280,14 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
     setStatus('Подтверждаем вход…')
     try {
       await cheatLabKeyLoginVerify(challenge.challengeId, code.trim())
+      const savedUser = await cheatLabSessionStatus()
+      if (!savedUser) throw new Error('Код подтверждён, но сервер не подтвердил сохранённую сессию. Проверь интернет и попробуй ещё раз.')
+      authenticated.current = true
       setChallenge(null)
       setBusy(false)
       onAuthenticated()
     } catch (error) {
-      setStatus(String(error))
+      setStatus(errorMessage(error))
       setBusy(false)
     }
   }
