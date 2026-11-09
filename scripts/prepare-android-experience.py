@@ -144,7 +144,7 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
       if (alive.current && user) onAuthenticated()
     }).catch(() => {})
     return () => { alive.current = false }
-  }, [onAuthenticated])
+  }, [])
 
   const startSiteLogin = async () => {
     setBusy(true)
@@ -468,12 +468,12 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     login = replace_once(
         login,
         "import { PixelField } from '../components/lobby/PixelField'\n",
-        "import { PixelField } from '../components/lobby/PixelField'\nimport { CheatLabLogin } from '../components/CheatLabLogin'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\n",
+        "import { PixelField } from '../components/lobby/PixelField'\nimport { CheatLabLogin } from '../components/CheatLabLogin'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../state/ui'\n",
         "Android login imports",
     )
     login = replace_once(
         login,
-        "        {step ? (\n          <GameAccountStep />\n        ) : (\n        <div className=\"login-form lg2-card\">",
+        "        {step ? (\n          <GameAccountStep androidAutoEnter={hasTauri() && /Android/i.test(navigator.userAgent)} />\n        ) : (\n        <div className=\"login-form lg2-card\">",
         """        {step ? (
           <GameAccountStep />
         ) : hasTauri() && /Android/i.test(navigator.userAgent) ? (
