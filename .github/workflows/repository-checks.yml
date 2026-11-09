@@ -20,7 +20,7 @@ jobs:
           test -s README.md
           test -s PORTING.md
           test -s FEATURES.md
-          grep -q "не является портом Millida Launcher" README.md
+          grep -q "Неофициальная мобильная адаптация" README.md
           grep -q "Критерий релиза" PORTING.md
           grep -q "Матрица функций" FEATURES.md
           grep -q "Build CHEATLAB Android launcher" .github/workflows/millida-android.yml
