@@ -132,6 +132,17 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
     lib = once(lib, old_builder, new_builder, "lib.rs plugin builder")
     lib = once(
         lib,
+        "    builder.setup(|app| {\\n",
+        """    builder.setup(|app| {
+            // Android: route all launcher/game data and encrypted login tokens
+            // into the package-private app data directory, never the process cwd.
+            #[cfg(target_os = "android")]
+            engine::set_android_data_dir(app.path().app_data_dir())?;
+""",
+        "Android private app data directory",
+    )
+    lib = once(
+        lib,
         "            update_start::run(app.handle(), shown_after_update);",
         '            #[cfg(not(target_os = "android"))]\n            update_start::run(app.handle(), shown_after_update);',
         "lib.rs updater setup",
@@ -149,6 +160,43 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
         "lib.rs desktop watchers",
     )
     lib_path.write_text(lib, encoding="utf-8")
+
+    # Android's dirs::data_dir() may resolve to a missing/unwritable
+    # Linux-style home on Android. Use Tauri's app-private storage instead.
+    paths_path = src / "engine/core/paths.rs"
+    paths = paths_path.read_text(encoding="utf-8")
+    paths = once(
+        paths,
+        "use std::path::PathBuf;\\n",
+        """use std::path::PathBuf;
+#[cfg(target_os = "android")]
+static ANDROID_DATA_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+#[cfg(target_os = "android")]
+pub fn set_android_data_dir(path: PathBuf) -> std::io::Result<()> {
+    std::fs::create_dir_all(&path)?;
+    ANDROID_DATA_DIR
+        .set(path)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::AlreadyExists, "Android data directory already initialized"))
+}
+""",
+        "Android app-private data directory state",
+    )
+    paths = once(
+        paths,
+        """pub fn data_dir() -> PathBuf {
+    dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("net.millida.launcher")
+}""",
+        """pub fn data_dir() -> PathBuf {
+    #[cfg(target_os = "android")]
+    if let Some(path) = ANDROID_DATA_DIR.get() {
+        return path.clone();
+    }
+    dirs::data_dir().unwrap_or_else(|| PathBuf::from(".")).join("net.millida.launcher")
+}""",
+        "Android app-private data directory resolver",
+    )
+    paths_path.write_text(paths, encoding="utf-8")
 
     # These modules are nested under engine::core, not the crate root.
     core_dir = src / "engine/core"
