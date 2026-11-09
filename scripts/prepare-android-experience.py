@@ -595,6 +595,29 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
             source = replace_once(source, before, after, f"CHEATLAB branding: {relative}")
         target.write_text(source, encoding="utf-8")
 
+    # Cold-start session recovery is an Android-only chunk, not part of the desktop entry bundle.
+    put(root / "src/lib/cheatlabBoot.ts", r'''import { cheatLabSessionStatus } from '../ipc/cheatlab'
+import { enterApp } from './session'
+import { hasGameAccount, startGameStep, useFirstRun } from '../state/firstRun'
+import { useUi } from '../state/ui'
+
+export async function resumeCheatLabSession(): Promise<void> {
+  try {
+    const user = await cheatLabSessionStatus()
+    if (user && hasGameAccount()) {
+      enterApp()
+      return
+    }
+    useUi.getState().setLogged(false)
+    if (user) startGameStep()
+    else useFirstRun.setState({ open: false })
+  } catch {
+    useUi.getState().setLogged(false)
+    useFirstRun.setState({ open: false })
+  }
+}
+''')
+
     # Android boot checks the encrypted CHEATLAB session instead of attempting
     # to sign into the upstream Millida service.
     app_path = root / "src/App.tsx"
@@ -602,7 +625,7 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     app = replace_once(
         app,
         "import { gameStepPending, hasGameAccount, useFirstRun } from './state/firstRun'\n",
-        "import { gameStepPending, hasGameAccount, useFirstRun, startGameStep } from './state/firstRun'\n",
+        "import { gameStepPending, hasGameAccount, useFirstRun } from './state/firstRun'\n",
         "Android boot first-run import",
     )
     app = replace_once(
@@ -619,18 +642,7 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
       if (!preview && hasTauri() && /Android/i.test(navigator.userAgent)) {
         if (androidAuthStarted) return
         androidAuthStarted = true
-        void import('./ipc/cheatlab').then(({ cheatLabSessionStatus }) => cheatLabSessionStatus()).then((user) => {
-          if (user && hasGameAccount()) {
-            enterApp()
-          } else {
-            useUi.getState().setLogged(false)
-            if (user) startGameStep()
-            else useFirstRun.setState({ open: false })
-          }
-        }).catch(() => {
-          useUi.getState().setLogged(false)
-          useFirstRun.setState({ open: false })
-        })
+        void import('./lib/cheatlabBoot').then(({ resumeCheatLabSession }) => resumeCheatLabSession())
         return
       }
       const acc = getAccount()
