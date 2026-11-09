@@ -1,4 +1,4 @@
-name: Build Millida Android port
+name: Build CHEATLAB Android launcher (based on Millida)
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   android:
-    name: Build original Millida UI/core for Android
+    name: Build Android launcher UI/core
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -57,13 +57,14 @@ jobs:
       - name: Apply Android platform adapter
         run: |
           python3 scripts/prepare-millida-android.py "$GITHUB_WORKSPACE/millida"
+          python3 scripts/prepare-android-experience.py "$GITHUB_WORKSPACE/millida"
           git -C millida diff --check
 
       - name: Install frontend dependencies
         working-directory: millida
         run: bun install --frozen-lockfile
 
-      - name: Build Millida React frontend
+      - name: Build CHEATLAB Launcher React frontend
         working-directory: millida
         run: bun run build:web
 
@@ -77,7 +78,7 @@ jobs:
         working-directory: millida
         run: bun run tauri android init --ci --config src-tauri/tauri.android.conf.json
 
-      - name: Compile the Millida Android app
+      - name: Compile the CHEATLAB Android app
         working-directory: millida
         run: bun run tauri android build --apk --target aarch64 --config src-tauri/tauri.android.conf.json
 
@@ -123,7 +124,7 @@ jobs:
       - name: Upload Android APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Millida-Android-Port-first-build
+          name: CHEATLAB-Android-Launcher
           path: |
             out/*.apk
             out/SHA256SUMS.txt
