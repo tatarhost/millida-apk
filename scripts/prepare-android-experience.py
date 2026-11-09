@@ -775,7 +775,7 @@ export function AndroidBottomNav() {
     deep = replace_once(deep, "if (url.protocol !== 'millida:') return", "if (url.protocol !== 'tatarlauncher:') return", "Android deep-link scheme")
     deep = replace_once(
         deep,
-        "  const q = url.searchParams\\n",
+        "  const q = url.searchParams\n",
         "  const q = url.searchParams\\n  if (action === 'auth' && rest === 'success') { window.dispatchEvent(new Event('cheatlab:resume')); return }\\n",
         "CHEATLAB login return deep link",
     )
