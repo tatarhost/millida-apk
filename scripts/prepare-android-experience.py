@@ -616,10 +616,11 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
 
     put(root / "src/components/AndroidBottomNav.tsx", r'''import { Icon } from './Icon'
 import { useT } from '../i18n'
-import { setScreen, type ScreenId } from '../state/ui'
+import { useUi, setScreen } from '../state/ui'
 
-export function AndroidBottomNav({ screen }: { screen: ScreenId }) {
+export function AndroidBottomNav() {
   const t = useT()
+  const screen = useUi((s) => s.screen)
   const items: { id: ScreenId; label: string; icon: string }[] = [
     { id: 'play', label: t('Играть'), icon: 'i-play' },
     { id: 'builds', label: t('Сборки'), icon: 'i-box' },
@@ -646,13 +647,23 @@ export function AndroidBottomNav({ screen }: { screen: ScreenId }) {
 ''')
 
     app = app_path.read_text(encoding="utf-8")
-    app = replace_once(app, "import { SvgSprite } from './components/SvgSprite'\n",
-                       "import { SvgSprite } from './components/SvgSprite'\nimport { AndroidBottomNav } from './components/AndroidBottomNav'\n",
-                       "App Android nav import")
+    app = replace_once(app, "  AccountAddModal,\n",
+                       "  AndroidBottomNav,\n  AccountAddModal,\n",
+                       "Add lazy Android nav to host imports")
     app = replace_once(app, "          </main>\n        </div>\n\n        {instanceMounted",
                        "          </main>\n          <AndroidBottomNav screen={screen} />\n        </div>\n\n        {instanceMounted",
                        "App Android nav mount")
     app_path.write_text(app, encoding="utf-8")
+
+    hosts_path = root / "src/components/hosts.tsx"
+    hosts = hosts_path.read_text(encoding="utf-8")
+    hosts = replace_once(
+        hosts,
+        "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\\n",
+        "export const MilliDock = lateMount(() => import('./milli/MilliDock').then((m) => ({ default: m.MilliDock })), 700)\\nexport const AndroidBottomNav = lateMount(() => import('./AndroidBottomNav').then((m) => ({ default: m.AndroidBottomNav })), 200)\\n",
+        "Android bottom navigation lazy host",
+    )
+    hosts_path.write_text(hosts, encoding="utf-8")
 
     put(root / "src/styles/android.css", r'''/* Android-first layout; desktop CSS is unchanged outside phone widths. */
 .android-bottom-nav { display: none; }
