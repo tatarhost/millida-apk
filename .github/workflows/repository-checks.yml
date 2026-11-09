@@ -23,5 +23,5 @@ jobs:
           grep -q "не является портом Millida Launcher" README.md
           grep -q "Критерий релиза" PORTING.md
           grep -q "Матрица функций" FEATURES.md
-          grep -q "Build Millida Android port" .github/workflows/millida-android.yml
+          grep -q "Build CHEATLAB Android launcher" .github/workflows/millida-android.yml
           echo "Documentation checks passed."
