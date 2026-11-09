@@ -776,7 +776,7 @@ export function AndroidBottomNav() {
     deep = replace_once(
         deep,
         "  const q = url.searchParams\n",
-        "  const q = url.searchParams\\n  if (action === 'auth' && rest === 'success') { window.dispatchEvent(new Event('cheatlab:resume')); return }\\n",
+        "  const q = url.searchParams\n  if (action === 'auth' && rest === 'success') { window.dispatchEvent(new Event('cheatlab:resume')); return }\n",
         "CHEATLAB login return deep link",
     )
     deep_path.write_text(deep, encoding="utf-8")
