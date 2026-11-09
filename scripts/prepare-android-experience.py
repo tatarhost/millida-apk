@@ -726,6 +726,12 @@ export function AndroidBottomNav({ screen }: { screen: ScreenId }) {
     deep_path = root / "src/lib/deeplink.ts"
     deep = deep_path.read_text(encoding="utf-8")
     deep = replace_once(deep, "if (url.protocol !== 'millida:') return", "if (url.protocol !== 'tatarlauncher:') return", "Android deep-link scheme")
+    deep = replace_once(
+        deep,
+        "  const q = url.searchParams\\n",
+        "  const q = url.searchParams\\n  if (action === 'auth' && rest === 'success') { window.dispatchEvent(new Event('cheatlab:resume')); return }\\n",
+        "CHEATLAB login return deep link",
+    )
     deep_path.write_text(deep, encoding="utf-8")
 
     print("Applied CHEATLAB branding, website device authorization, encrypted native session storage and Android touch layout.")
