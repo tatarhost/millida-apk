@@ -81,12 +81,43 @@ jobs:
         working-directory: millida
         run: bun run tauri android build --apk --target aarch64 --config src-tauri/tauri.android.conf.json
 
-      - name: Collect APKs
+      - name: Sign Android APK for installation
         working-directory: millida
+        env:
+          TEST_KEYSTORE_PASSWORD: millida-android-test
         run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/millida-test.keystore"
+          keytool -genkeypair -noprompt -v \
+            -keystore "$KEYSTORE" \
+            -storepass "$TEST_KEYSTORE_PASSWORD" \
+            -keypass "$TEST_KEYSTORE_PASSWORD" \
+            -alias millida-test \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Unofficial Millida Android Port, O=TatarHost, C=US"
+
+          mapfile -t APKS < <(find src-tauri/gen/android -type f -name '*-release-unsigned.apk' -print)
+          if [ "${#APKS[@]}" -eq 0 ]; then
+            echo "::error::No release-unsigned.apk was produced by Tauri"
+            find src-tauri/gen/android -type f -name '*.apk' -print
+            exit 1
+          fi
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p "$GITHUB_WORKSPACE/out"
-          find src-tauri/gen/android -type f -name '*.apk' -print -exec cp '{}' "$GITHUB_WORKSPACE/out/" \;
-          test -n "$(find "$GITHUB_WORKSPACE/out" -type f -name '*.apk' -print -quit)"
+          for APK in "${APKS[@]}"; do
+            BASE="$(basename "$APK" -release-unsigned.apk)"
+            ALIGNED="$RUNNER_TEMP/${BASE}-aligned.apk"
+            SIGNED="$GITHUB_WORKSPACE/out/${BASE}-signed.apk"
+            "$BUILD_TOOLS/zipalign" -f -v 4 "$APK" "$ALIGNED"
+            "$BUILD_TOOLS/apksigner" sign \
+              --ks "$KEYSTORE" \
+              --ks-key-alias millida-test \
+              --ks-pass "pass:$TEST_KEYSTORE_PASSWORD" \
+              --key-pass "pass:$TEST_KEYSTORE_PASSWORD" \
+              --out "$SIGNED" "$ALIGNED"
+            "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$SIGNED"
+          done
           sha256sum "$GITHUB_WORKSPACE/out/"*.apk > "$GITHUB_WORKSPACE/out/SHA256SUMS.txt"
 
       - name: Upload Android APK artifact
