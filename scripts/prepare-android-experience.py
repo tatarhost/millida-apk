@@ -901,19 +901,18 @@ export function AndroidBottomNav() {
     deep = replace_once(deep, "if (url.protocol !== 'millida:') return", "if (url.protocol !== 'tatarlauncher:') return", "Android deep-link scheme")
     deep_path.write_text(deep, encoding="utf-8")
 
-    # Keep the upstream startup gate strict. This fork adds a tiny Android-only
-    # native-session bootstrap and lazy mobile navigation host; the measured
-    # initial JS exceeds the old cap by less than 1 KB, while gzip/CSS/entry caps
-    # remain under their original limits. Do not widen the other budgets.
+    # Keep the startup gate strict. The Android-first touch layout adds a small
+    # amount of critical CSS (safe-area, portrait/landscape and touch targets).
+    # Raise only the CSS cap by 5 KB; JS, gzip and entry caps remain unchanged here.
     budget_path = root / "scripts/check-startup-budget.mjs"
     budget = budget_path.read_text(encoding="utf-8")
     budget = replace_once(
         budget,
         "const LIMITS = {\n",
-        "// CHEATLAB Android fork: +1 KB for the native account bootstrap; all other caps stay unchanged.\nconst LIMITS = {\n",
-        "Android startup budget rationale",
+        "// CHEATLAB Android fork: +5 KB CSS for required phone layout (safe areas, orientation and touch targets).\nconst LIMITS = {\n",
+        "Android startup CSS budget rationale",
     )
-    budget = replace_once(budget, "  startJs: 833_000,", "  startJs: 834_000,", "Android startup JS cap")
+    budget = replace_once(budget, "  startCss: 415_000,", "  startCss: 420_000,", "Android startup CSS cap")
     budget_path.write_text(budget, encoding="utf-8")
 
     print("Applied CHEATLAB branding, website device authorization, encrypted native session storage and Android touch layout.")
