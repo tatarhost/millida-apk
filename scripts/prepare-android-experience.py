@@ -796,8 +796,8 @@ export function AndroidBottomNav() {
     budget = budget_path.read_text(encoding="utf-8")
     budget = replace_once(
         budget,
-        "const LIMITS = {\\n",
-        "// CHEATLAB Android fork: +1 KB for the native account bootstrap; all other caps stay unchanged.\\nconst LIMITS = {\\n",
+        "const LIMITS = {\n",
+        "// CHEATLAB Android fork: +1 KB for the native account bootstrap; all other caps stay unchanged.\nconst LIMITS = {\n",
         "Android startup budget rationale",
     )
     budget = replace_once(budget, "  startJs: 833_000,", "  startJs: 834_000,", "Android startup JS cap")
