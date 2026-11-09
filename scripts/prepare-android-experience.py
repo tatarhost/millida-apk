@@ -352,8 +352,34 @@ fn store_session(value: &Value) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[tauri::command]
 pub async fn cheatlab_device_init() -> Result<Value, String> {
-    request(Method::POST, "/api/app-auth/init", Some(json!({})), None).await
+    let value = request(Method::POST, "/api/app-auth/init", Some(json!({})), None).await?;
+    let code = value["deviceCode"].as_str().filter(|s| s.len() >= 20)
+        .ok_or_else(|| "CHEATLAB не вернул код устройства".to_string())?;
+    secrets::set_many(vec![(PENDING_KEY.to_string(), code.to_string())])?;
+    Ok(value)
+}
+
+async fn resume_pending_device_login() -> Result<Value, String> {
+    let Some(code) = secrets::get(PENDING_KEY) else {
+        return Ok(json!({ "user": null }));
+    };
+    let value = request(
+        Method::POST,
+        "/api/app-auth/poll",
+        Some(json!({ "deviceCode": code })),
+        None,
+    ).await?;
+    if value["token"].is_string() {
+        store_session(&value)?;
+        secrets::delete(PENDING_KEY)?;
+        return Ok(json!({ "user": value["user"] }));
+    }
+    if value["status"] == "expired" || value["status"] == "denied" {
+        let _ = secrets::delete(PENDING_KEY);
+    }
+    Ok(json!({ "user": null }))
 }
 
 #[tauri::command]
@@ -366,23 +392,26 @@ pub async fn cheatlab_device_poll(device_code: String) -> Result<Value, String> 
     ).await?;
     if value["token"].is_string() {
         store_session(&value)?;
+        secrets::delete(PENDING_KEY)?;
         return Ok(json!({ "status": "ok", "user": value["user"] }));
+    }
+    if value["status"] == "expired" || value["status"] == "denied" {
+        let _ = secrets::delete(PENDING_KEY);
     }
     Ok(value)
 }
 
 #[tauri::command]
 pub async fn cheatlab_session_status() -> Result<Value, String> {
-    let Some(token) = secrets::get(SESSION_KEY) else {
-        return Ok(json!({ "user": null }));
-    };
-    let value = request(Method::GET, "/api/auth/me", None, Some(&token)).await?;
-    if value["user"].is_null() {
+    if let Some(token) = secrets::get(SESSION_KEY) {
+        let value = request(Method::GET, "/api/auth/me", None, Some(&token)).await?;
+        if !value["user"].is_null() {
+            return Ok(json!({ "user": value["user"] }));
+        }
         let _ = secrets::delete(SESSION_KEY);
     }
-    Ok(json!({ "user": value["user"] }))
+    resume_pending_device_login().await
 }
-
 #[tauri::command]
 pub async fn cheatlab_key_login_start(key: String, email: Option<String>) -> Result<Value, String> {
     request(
