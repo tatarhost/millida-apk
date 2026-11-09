@@ -250,7 +250,7 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
     setBusy(true)
     setStatus('Проверяем ключ и отправляем код подтверждения…')
     try {
-      const result = await cheatLabKeyLoginStart(key.trim().replace(/\\s+/g, ''), email.trim() || undefined)
+      const result = await cheatLabKeyLoginStart(key.trim().replace(/\s+/g, ''), email.trim() || undefined)
       if ((result.verificationRequired || result.challengeId) && result.challengeId) {
         setChallenge({ challengeId: result.challengeId, email: result.email, expiresAt: result.expiresAt })
         setStatus(result.email ? 'Код отправлен на ' + result.email : 'Код отправлен на почту аккаунта.')
