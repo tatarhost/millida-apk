@@ -753,6 +753,7 @@ export function AndroidBottomNav() {
 
     put(root / "src/styles/android.css", r'''/* Android-first layout; desktop CSS is unchanged outside phone widths. */
 .android-bottom-nav { display: none; }
+.android-version-shortcut { display:none; }
 .cl-login-card { width: min(100%, 480px); }
 .cl-login-brand { display:flex; align-items:center; gap:10px; margin:0 0 22px; font-weight:950; letter-spacing:.1em; color:#f3f8f4; }
 .cl-login-mark { display:grid; place-items:center; width:38px; height:38px; background:#8ee8a8; color:#09130d; font-size:23px; font-weight:950; }
