@@ -1,27 +1,28 @@
-# Матрица функций настоящего Android-порта Millida
+# Матрица функций CHEATLAB Launcher для Android
 
-Пока нет функции, которую можно честно отметить как «перенесена и протестирована на Android». Этот список описывает реальные разделы upstream `millida/launcher` и критерии их мобильного переноса, а не заявляет, что их уже содержит опубликованный APK.
+Статусы разделяют внесённый код, успешную сборку и тестирование на устройстве. Функция не считается готовой только потому, что для неё появилась кнопка или Rust-код собрался.
 
-| Функция исходного Millida Launcher | Android-перенос | Что требуется |
+| Функция | Текущий статус | Примечание |
 |---|---|---|
-| React UI / навигация | Не перенесено | Тот же UI исходника, адаптивная раскладка и touch |
-| Профили и сборки | Не перенесено | Rust IPC + app-private storage |
-| Vanilla Minecraft | Не перенесено | Android ARM64 JVM через JNI и GLES/Vulkan/LWJGL |
-| Java runtime management | Не перенесено | Android runtime packages, не desktop JRE |
-| Fabric / Quilt | Не проверено | Установка и запуск реальных версий на Android |
-| Forge / NeoForge | Не проверено | Отдельные проверки по версии Minecraft |
-| Моды / Modrinth / CurseForge | Не перенесено | Сохранить исходные загрузчики и адаптировать SAF |
-| ZIP / MRPACK / packwiz | Не перенесено | Android file picker и безопасная распаковка |
-| Ресурспаки / шейдеры | Не проверено | Проверить конкретный mobile renderer и GPU |
-| Миры / резервные копии | Не перенесено | SAF, URI permissions и private storage |
-| Серверы / Quick Play | Не перенесено | Android network lifecycle и сохранение серверов |
-| Microsoft sign-in | Не перенесено | Собственная OAuth app registration/redirect |
-| Скины / плащи / аккаунт Millida | Ограничено | Только с разрешёнными сервисами/учётными данными |
-| Друзья / чат / голос | Не перенесено | Проверить сервисы, разрешения и Android audio lifecycle |
-| Хостинг / серверные разделы | Не перенесено | Проверить API-права и работу экранов |
-| Desktop tray | Не применимо | Android notification/foreground service при необходимости |
-| Global hotkeys | Не применимо | Экранные controls и поддержка клавиатуры/геймпада |
-| Desktop in-game overlay | Не применимо | Android control overlay / встроенные игровые контролы |
-| Desktop auto-updater | Не применимо | Android APK/AAB distribution и установочный flow |
+| Основа интерфейса Millida | Перенесена в сборку | Используется исходный React/TypeScript UI |
+| CHEATLAB device login | Реализован в коде, ожидает Android build/device test | Вход через cheatlab.fun, подтверждение ссылки, возврат в приложение |
+| Вход по ключу CHEATLAB | Реализован в коде, ожидает Android build/device test | clab2 key + email OTP |
+| Хранение CHEATLAB-сессии | Реализован в коде, ожидает Android build/device test | Токен хранится через Rust encrypted vault, не возвращается в React |
+| Отдельный Microsoft/офлайн игровой аккаунт | Существующий экран сохранён | Не смешивается с аккаунтом сайта |
+| Нижняя мобильная навигация | Реализована в коде, ожидает Android device test | Играть, сборки, каталог, серверы, друзья |
+| Адаптация узких экранов | Частично реализована | Safe areas, нижняя панель, диалоги, сенсорные кнопки; нужен тест всех экранов |
+| Собственный CHEATLAB brand/icon | Реализован в build adapter | Новый application ID иконка и название |
+| Minecraft Vanilla на Android | Не готово | Нужна ARM64 JVM через JNI и Android graphics backend |
+| Fabric / Quilt | Не проверено | Требуется запуск на Android |
+| Forge / NeoForge | Не проверено | Требуется проверка отдельных версий |
+| Моды / Modrinth / CurseForge | Не проверено | Нужна Android file access/SAF |
+| ZIP / MRPACK / packwiz | Не проверено | Нужен Android Storage Access Framework |
+| Миры / резервные копии | Не проверено | SAF, URI permissions и app-private storage |
+| Ресурспаки / шейдеры | Не проверено | Зависит от Android renderer и GPU |
+| Сенсорное управление в Minecraft | Не готово | Сначала нужен Android game runtime + input bridge |
+| Серверы / Quick Play | Не проверено | Нужна проверка на устройстве |
+| Друзья / чат / голос | Не проверено | Нужны Android audio lifecycle и разрешения |
 
-Правило: функция становится «перенесена» только после запуска и проверки на реальном Android устройстве. Один лишь успешный web-build, видимая кнопка или компиляция Rust не доказывают, что функция работает.
+## Критерий релиза
+
+APK считается только сборкой оболочки, пока Vanilla Minecraft не будет реально запущен на ARM64 Android, не появится работающий сенсорный input bridge и не будут проверены хранилище файлов, игровые аккаунты и основные разделы интерфейса.
