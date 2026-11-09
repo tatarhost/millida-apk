@@ -478,9 +478,21 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     login = login_path.read_text(encoding="utf-8")
     login = replace_once(
         login,
+        "import { useEffect, useRef, useState } from 'react'\n",
+        "import { lazy, Suspense, useEffect, useRef, useState } from 'react'\n",
+        "Android lazy-login React imports",
+    )
+    login = replace_once(
+        login,
         "import { PixelField } from '../components/lobby/PixelField'\n",
-        "import { PixelField } from '../components/lobby/PixelField'\nimport { CheatLabLogin } from '../components/CheatLabLogin'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../state/ui'\n",
+        "import { PixelField } from '../components/lobby/PixelField'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../state/ui'\n",
         "Android login imports",
+    )
+    login = replace_once(
+        login,
+        "const SAFETY_URL = 'https://millida.net/launcher/bezopasnost'\n",
+        "const SAFETY_URL = 'https://millida.net/launcher/bezopasnost'\nconst CheatLabLogin = lazy(() => import('../components/CheatLabLogin').then((m) => ({ default: m.CheatLabLogin })))\n",
+        "Lazy-load CHEATLAB login screen",
     )
     login = replace_once(login, "function GameAccountStep() {",
                          "function GameAccountStep({ androidAutoEnter = false }: { androidAutoEnter?: boolean }) {",
@@ -497,7 +509,9 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
         """        {step ? (
           <GameAccountStep androidAutoEnter={hasTauri() && /Android/i.test(navigator.userAgent)} />
         ) : hasTauri() && /Android/i.test(navigator.userAgent) ? (
-          <CheatLabLogin onAuthenticated={() => startGameStep()} />
+          <Suspense fallback={null}>
+            <CheatLabLogin onAuthenticated={() => startGameStep()} />
+          </Suspense>
         ) : (
         <div className="login-form lg2-card">""",
         "Android login screen",
