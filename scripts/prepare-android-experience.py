@@ -639,11 +639,8 @@ export async function resumeCheatLabSession(): Promise<void> {
     app = replace_once(
         app,
         "    const decide = (check: SessionCheck, rechecks: number) => {\n      const acc = getAccount()\n",
-        """    let androidAuthStarted = false
-    const decide = (check: SessionCheck, rechecks: number) => {
+        """    const decide = (check: SessionCheck, rechecks: number) => {
       if (!preview && hasTauri() && /Android/i.test(navigator.userAgent)) {
-        if (androidAuthStarted) return
-        androidAuthStarted = true
         void import('./lib/cheatlabBoot').then(({ resumeCheatLabSession }) => resumeCheatLabSession())
         return
       }
