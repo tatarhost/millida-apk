@@ -158,10 +158,12 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
     }
     const onResume = () => checkSession()
     checkSession()
-    window.addEventListener('cheatlab:resume', onResume)
+    document.addEventListener('visibilitychange', onResume)
+    window.addEventListener('focus', onResume)
     return () => {
       alive.current = false
-      window.removeEventListener('cheatlab:resume', onResume)
+      document.removeEventListener('visibilitychange', onResume)
+      window.removeEventListener('focus', onResume)
     }
   }, [])
 
@@ -784,12 +786,6 @@ export function AndroidBottomNav() {
     deep_path = root / "src/lib/deeplink.ts"
     deep = deep_path.read_text(encoding="utf-8")
     deep = replace_once(deep, "if (url.protocol !== 'millida:') return", "if (url.protocol !== 'tatarlauncher:') return", "Android deep-link scheme")
-    deep = replace_once(
-        deep,
-        "  const q = url.searchParams\n",
-        "  const q = url.searchParams\n  if (action === 'auth' && rest === 'success') { window.dispatchEvent(new Event('cheatlab:resume')); return }\n",
-        "CHEATLAB login return deep link",
-    )
     deep_path.write_text(deep, encoding="utf-8")
 
     print("Applied CHEATLAB branding, website device authorization, encrypted native session storage and Android touch layout.")
