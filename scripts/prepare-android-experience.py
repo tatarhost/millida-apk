@@ -130,7 +130,7 @@ import {
   cheatLabKeyLoginStart,
   cheatLabKeyLoginVerify,
   cheatLabSessionStatus,
-} from '../ipc/commands'
+} from '../ipc/cheatlab'
 import { openUrl } from '../ipc/commands'
 
 type Mode = 'site' | 'key'
@@ -151,7 +151,7 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
 
   useEffect(() => {
     alive.current = true
-    void cheatLabSessionStatus().then((user) => {
+    void import('./ipc/cheatlab').then(({ cheatLabSessionStatus }) => cheatLabSessionStatus()).then((user) => {
       if (alive.current && user) onAuthenticated()
     }).catch(() => {})
     return () => { alive.current = false }
@@ -489,7 +489,7 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     login = replace_once(
         login,
         "import { PixelField } from '../components/lobby/PixelField'\n",
-        "import { PixelField } from '../components/lobby/PixelField'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../state/ui'\n",
+        "import { PixelField } from '../components/lobby/PixelField'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../lib/session'\n",
         "Android login imports",
     )
     login = replace_once(
@@ -580,13 +580,12 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     put(root / "src/components/AndroidBottomNav.tsx", r'''import { Icon } from './Icon'
 import { useT } from '../i18n'
 import { setScreen, type ScreenId } from '../state/ui'
-import { useMods } from '../state/mods'
 
 export function AndroidBottomNav({ screen }: { screen: ScreenId }) {
   const t = useT()
   const items: { id: ScreenId; label: string; icon: string }[] = [
     { id: 'play', label: t('Играть'), icon: 'i-play' },
-    { id: 'builds', label: t('Сборки'), icon: 'i-box2' },
+    { id: 'builds', label: t('Сборки'), icon: 'i-box' },
     { id: 'mods', label: t('Каталог'), icon: 'i-blocks' },
     { id: 'servers', label: t('Серверы'), icon: 'i-server' },
     { id: 'friends', label: t('Друзья'), icon: 'i-users' },
@@ -599,7 +598,7 @@ export function AndroidBottomNav({ screen }: { screen: ScreenId }) {
         return (
           <button key={item.id} type="button" className={'android-bottom-nav__item' + (active ? ' is-active' : '')}
             aria-current={active ? 'page' : undefined}
-            onClick={() => { if (item.id === 'mods') useMods.getState().scopeTo(null); setScreen(item.id); document.querySelector<HTMLElement>('.content')?.scrollTo(0, 0) }}>
+            onClick={() => { if (item.id === 'mods') void import('../state/mods').then(({ useMods }) => useMods.getState().scopeTo(null)); setScreen(item.id); document.querySelector<HTMLElement>('.content')?.scrollTo(0, 0) }}>
             <Icon id={item.icon} /><span>{item.label}</span>
           </button>
         )
