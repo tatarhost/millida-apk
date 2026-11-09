@@ -109,7 +109,7 @@ def main() -> None:
         make_icon(folder / "ic_launcher_round.png", base)
         make_icon(folder / "ic_launcher_foreground.png", int(base * 2.25), transparent=True)
     put(root / "src-tauri/icons/android/values/ic_launcher_background.xml",
-        '<resources><color name="ic_launcher_background">#0D1410</color></resources>\\n')
+        '<resources><color name="ic_launcher_background">#0D1410</color></resources>\n')
 
     index_path = root / "index.html"
     index = index_path.read_text(encoding="utf-8")
@@ -478,8 +478,8 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
     login = login_path.read_text(encoding="utf-8")
     login = replace_once(
         login,
-        "import { PixelField } from '../components/lobby/PixelField'\\n",
-        "import { PixelField } from '../components/lobby/PixelField'\\nimport { CheatLabLogin } from '../components/CheatLabLogin'\\nimport { hasTauri } from '../ipc/tauri'\\nimport { startGameStep } from '../state/firstRun'\\nimport { enterApp } from '../state/ui'\\n",
+        "import { PixelField } from '../components/lobby/PixelField'\n",
+        "import { PixelField } from '../components/lobby/PixelField'\nimport { CheatLabLogin } from '../components/CheatLabLogin'\nimport { hasTauri } from '../ipc/tauri'\nimport { startGameStep } from '../state/firstRun'\nimport { enterApp } from '../state/ui'\n",
         "Android login imports",
     )
     login = replace_once(login, "function GameAccountStep() {",
@@ -487,13 +487,13 @@ export const cheatLabLogout = () => invoke<void>('cheatlab_logout')
                          "Android game account step props")
     login = replace_once(
         login,
-        "  useEffect(() => {\\n    if (added) finishFirstRun()\\n  }, [added])",
-        "  useEffect(() => {\\n    if (added) { finishFirstRun(); if (androidAutoEnter) enterApp() }\\n  }, [added, androidAutoEnter])",
+        "  useEffect(() => {\n    if (added) finishFirstRun()\n  }, [added])",
+        "  useEffect(() => {\n    if (added) { finishFirstRun(); if (androidAutoEnter) enterApp() }\n  }, [added, androidAutoEnter])",
         "Android game account completion",
     )
     login = replace_once(
         login,
-        "        {step ? (\\n          <GameAccountStep />\\n        ) : (\\n        <div className=\\"login-form lg2-card\\">",
+        "        {step ? (\n          <GameAccountStep />\n        ) : (\n        <div className=\"login-form lg2-card\">",
         """        {step ? (
           <GameAccountStep androidAutoEnter={hasTauri() && /Android/i.test(navigator.userAgent)} />
         ) : hasTauri() && /Android/i.test(navigator.userAgent) ? (
