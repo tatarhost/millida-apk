@@ -151,10 +151,18 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
 
   useEffect(() => {
     alive.current = true
-    void cheatLabSessionStatus().then((user) => {
-      if (alive.current && user) onAuthenticated()
-    }).catch(() => {})
-    return () => { alive.current = false }
+    const checkSession = () => {
+      void cheatLabSessionStatus().then((user) => {
+        if (alive.current && user) onAuthenticated()
+      }).catch(() => {})
+    }
+    const onResume = () => checkSession()
+    checkSession()
+    window.addEventListener('cheatlab:resume', onResume)
+    return () => {
+      alive.current = false
+      window.removeEventListener('cheatlab:resume', onResume)
+    }
   }, [])
 
   const startSiteLogin = async () => {
