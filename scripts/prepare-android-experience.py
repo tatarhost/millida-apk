@@ -313,6 +313,7 @@ use std::time::Duration;
 const API: &str = "https://cheatlab.tatarhost.workers.dev";
 const CLIENT_KEY: &str = "cheatlab-client-id";
 const SESSION_KEY: &str = "cheatlab-session";
+const PENDING_KEY: &str = "cheatlab-pending-device-code";
 
 fn app_client_id() -> Result<String, String> {
     if let Some(id) = secrets::get(CLIENT_KEY) {
@@ -363,7 +364,6 @@ fn store_session(value: &Value) -> Result<(), String> {
     secrets::set_many(vec![(SESSION_KEY.to_string(), token.to_string())])
 }
 
-#[tauri::command]
 #[tauri::command]
 pub async fn cheatlab_device_init() -> Result<Value, String> {
     let value = request(Method::POST, "/api/app-auth/init", Some(json!({})), None).await?;
