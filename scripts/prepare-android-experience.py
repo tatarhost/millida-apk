@@ -151,7 +151,7 @@ export function CheatLabLogin({ onAuthenticated }: { onAuthenticated: () => void
 
   useEffect(() => {
     alive.current = true
-    void import('./ipc/cheatlab').then(({ cheatLabSessionStatus }) => cheatLabSessionStatus()).then((user) => {
+    void cheatLabSessionStatus().then((user) => {
       if (alive.current && user) onAuthenticated()
     }).catch(() => {})
     return () => { alive.current = false }
